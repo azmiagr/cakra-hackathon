@@ -1,4 +1,4 @@
-# Go REST API Starter
+# Cakra Hackathon
 
 A clean Go REST API with a simple 3-layer architecture. It includes the common pieces needed for an HTTP service, database access, authentication utilities, middleware, configuration, and standardized JSON responses.
 

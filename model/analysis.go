@@ -88,6 +88,27 @@ type PaginationResponse struct {
 	TotalPages int `json:"total_pages"`
 }
 
+type DashboardResponse struct {
+	UserName          string                `json:"user_name"`
+	TotalAnalyzedSKUs int                   `json:"total_analyzed_skus"`
+	AvailableCredits  int                   `json:"available_credits"`
+	StockoutRiskCount int                   `json:"stockout_risk_count"`
+	AverageAccuracy   *float64              `json:"average_accuracy"`
+	AccuracyReady     bool                  `json:"accuracy_ready"`
+	RecentAnalyses    []AnalysisHistoryItem `json:"recent_analyses"`
+	UrgentSKUs        []DashboardAlert      `json:"urgent_skus"`
+	CreditAccount     CreditAccountResponse `json:"credit_account"`
+}
+
+type DashboardAlert struct {
+	SessionID    uuid.UUID `json:"session_id"`
+	SKUID        uuid.UUID `json:"sku_id"`
+	SKUName      string    `json:"sku_name"`
+	RiskLabel    string    `json:"risk_label"`
+	RiskReason   string    `json:"risk_reason"`
+	AnalysisDate string    `json:"analysis_date"`
+}
+
 type AnalysisResultResponse struct {
 	SKU                AnalysisResultSKU     `json:"sku"`
 	AnalysisDate       string                `json:"analysis_date"`

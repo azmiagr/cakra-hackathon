@@ -27,6 +27,8 @@ type IAnalysisRepository interface {
 	UpdateSessionResult(tx *gorm.DB, sessionID uuid.UUID, status string, demandCategory *string, adiValue, cvSquaredValue *float64, failureCode, failureMessage *string) error
 	ListHistory(tx *gorm.DB, userID uuid.UUID, query model.AnalysisHistoryQuery) ([]model.AnalysisHistoryItem, int, error)
 	GetHistorySummary(tx *gorm.DB, userID uuid.UUID) (*model.AnalysisHistorySummary, error)
+	CountCompletedSKUs(tx *gorm.DB, userID uuid.UUID) (int, error)
+	ListDashboardAlerts(tx *gorm.DB, userID uuid.UUID, limit int) ([]model.DashboardAlert, error)
 }
 
 type AnalysisRepository struct{ db *gorm.DB }
@@ -276,4 +278,34 @@ func (r *AnalysisRepository) GetHistorySummary(tx *gorm.DB, userID uuid.UUID) (*
 	summary.AtRiskSKUCount = int(atRiskSKUCount)
 
 	return summary, nil
+}
+
+func (r *AnalysisRepository) CountCompletedSKUs(tx *gorm.DB, userID uuid.UUID) (int, error) {
+	var count int64
+	err := tx.
+		Model(&entity.AnalysisSession{}).
+		Where("user_id = ? AND status = ?", userID, constants.AnalysisSessionCompleted).
+		Distinct("sku_id").
+		Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+func (r *AnalysisRepository) ListDashboardAlerts(tx *gorm.DB, userID uuid.UUID, limit int) ([]model.DashboardAlert, error) {
+	alerts := make([]model.DashboardAlert, 0)
+	err := tx.
+		Table("analysis_sessions").
+		Joins("JOIN skus ON skus.sku_id = analysis_sessions.sku_id").
+		Joins("JOIN recommendation_results ON recommendation_results.analysis_session_id = analysis_sessions.analysis_session_id").
+		Where("analysis_sessions.user_id = ? AND analysis_sessions.status = ? AND recommendation_results.risk_label <> ?", userID, constants.AnalysisSessionCompleted, "NORMAL").
+		Select("analysis_sessions.analysis_session_id AS session_id, skus.sku_id, skus.name AS sku_name, recommendation_results.risk_label, recommendation_results.risk_reason, DATE_FORMAT(recommendation_results.created_at, '%Y-%m-%d') AS analysis_date").
+		Order("recommendation_results.created_at DESC").
+		Limit(limit).
+		Scan(&alerts).Error
+	if err != nil {
+		return nil, err
+	}
+	return alerts, nil
 }

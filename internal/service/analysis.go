@@ -35,6 +35,7 @@ type IAnalysisService interface {
 	GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error)
 	GetHistory(userID uuid.UUID, query model.AnalysisHistoryQuery) (*model.AnalysisHistoryResponse, error)
 	ListCategories(userID uuid.UUID) ([]model.CategoryResponse, error)
+	GetDashboard(userID uuid.UUID, userName, search string) (*model.DashboardResponse, error)
 	CompleteFromAI(sessionID uuid.UUID, req model.AIResultRequest) error
 }
 
@@ -264,6 +265,53 @@ func (s *AnalysisService) ListCategories(userID uuid.UUID) ([]model.CategoryResp
 		response[i] = model.CategoryResponse{CategoryID: category.CategoryID, Name: category.Name}
 	}
 	return response, nil
+}
+
+func (s *AnalysisService) GetDashboard(userID uuid.UUID, userName, search string) (*model.DashboardResponse, error) {
+	account, err := s.creditRepo.GetByUserID(s.db, userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, appErrors.NotFound("akun kredit tidak ditemukan")
+	}
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil kredit")
+	}
+
+	summary, err := s.analysisRepo.GetHistorySummary(s.db, userID)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil ringkasan dashboard")
+	}
+
+	totalSKUs, err := s.analysisRepo.CountCompletedSKUs(s.db, userID)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil total SKU dianalisis")
+	}
+
+	recent, _, err := s.analysisRepo.ListHistory(s.db, userID, model.AnalysisHistoryQuery{Search: strings.TrimSpace(search), Page: 1, Limit: 6, Sort: "newest"})
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil analisis terbaru")
+	}
+
+	alerts, err := s.analysisRepo.ListDashboardAlerts(s.db, userID, 3)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil SKU berisiko")
+	}
+
+	availableCredits := account.Balance - account.ReservedCredits
+	return &model.DashboardResponse{
+		UserName:          userName,
+		TotalAnalyzedSKUs: totalSKUs,
+		AvailableCredits:  availableCredits,
+		StockoutRiskCount: summary.AtRiskSKUCount,
+		AverageAccuracy:   summary.AverageAccuracy,
+		AccuracyReady:     summary.AccuracyReady,
+		RecentAnalyses:    recent,
+		UrgentSKUs:        alerts,
+		CreditAccount: model.CreditAccountResponse{
+			Balance:          account.Balance,
+			ReservedCredits:  account.ReservedCredits,
+			AvailableCredits: availableCredits,
+		},
+	}, nil
 }
 
 func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error) {

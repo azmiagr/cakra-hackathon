@@ -21,4 +21,4 @@ COPY --from=builder /out/cakra-api /app/cakra-api
 
 USER cakra
 EXPOSE 8082
-ENTRYPOINT ["./cakra-hackathon"]
+ENTRYPOINT ["./cakra-api"]

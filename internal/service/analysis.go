@@ -30,7 +30,7 @@ const maxXLSXSize = 2 * 1024 * 1024
 
 type IAnalysisService interface {
 	Upload(userID uuid.UUID, file *multipart.FileHeader) (*model.AnalysisUploadResponse, error)
-	CreateSession(userID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error)
+	CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error)
 	GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error)
 	CompleteFromAI(sessionID uuid.UUID, req model.AIResultRequest) error
 }
@@ -135,14 +135,14 @@ func (s *AnalysisService) Upload(userID uuid.UUID, file *multipart.FileHeader) (
 	return uploadResponse(upload, parsed.rows, parsed.errors), nil
 }
 
-func (s *AnalysisService) CreateSession(userID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error) {
+func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error) {
 	tx := s.db.Begin()
 	if tx.Error != nil {
 		return nil, appErrors.InternalServer("gagal memulai analisis")
 	}
 	defer tx.Rollback()
 
-	upload, err := s.analysisRepo.GetUploadOwned(tx, req.UploadID, userID)
+	upload, err := s.analysisRepo.GetUploadOwned(tx, uploadID, userID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, appErrors.NotFound("upload tidak ditemukan")
 	}

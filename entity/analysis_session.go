@@ -9,7 +9,7 @@ import (
 type AnalysisSession struct {
 	AnalysisSessionID uuid.UUID `json:"analysis_session_id" gorm:"type:varchar(36);primaryKey"`
 	UserID            uuid.UUID `json:"user_id" gorm:"type:varchar(36);not null;index"`
-	SKUID             uuid.UUID `json:"sku_id" gorm:"type:varchar(36);not null;index"`
+	SKUID             uuid.UUID `json:"sku_id" gorm:"column:sku_id;type:varchar(36);not null;index"`
 	AnalysisUploadID  uuid.UUID `json:"analysis_upload_id" gorm:"type:varchar(36);not null;index"`
 	CurrentStock      int       `json:"current_stock" gorm:"not null"`
 	LeadTimeDays      int       `json:"lead_time_days" gorm:"not null"`

@@ -75,7 +75,10 @@ func (r *AnalysisRepository) GetUploadOwned(tx *gorm.DB, uploadID, userID uuid.U
 func (r *AnalysisRepository) ListUploadRows(tx *gorm.DB, uploadID uuid.UUID) ([]entity.AnalysisUploadRow, error) {
 	var rows []entity.AnalysisUploadRow
 
-	err := tx.Where("analysis_upload_id = ?", uploadID).Order("row_number ASC").Find(&rows).Error
+	err := tx.
+		Where("analysis_upload_id = ?", uploadID).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "row_number"}}).
+		Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +88,10 @@ func (r *AnalysisRepository) ListUploadRows(tx *gorm.DB, uploadID uuid.UUID) ([]
 func (r *AnalysisRepository) ListValidationErrors(tx *gorm.DB, uploadID uuid.UUID) ([]entity.UploadValidationError, error) {
 	var rows []entity.UploadValidationError
 
-	err := tx.Where("analysis_upload_id = ?", uploadID).Order("row_number ASC").Find(&rows).Error
+	err := tx.
+		Where("analysis_upload_id = ?", uploadID).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "row_number"}}).
+		Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}

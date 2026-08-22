@@ -10,6 +10,23 @@ import (
 
 const registrationSessionHeader = "X-Session-Token"
 
+func (r *Rest) Login(c *gin.Context) {
+	var req model.LoginRequest
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "request tidak valid", nil)
+		return
+	}
+
+	result, err := r.service.AuthService.Login(req)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "login berhasil", result)
+}
+
 func (r *Rest) Register(c *gin.Context) {
 	var req model.RegisterRequest
 	err := c.ShouldBindJSON(&req)

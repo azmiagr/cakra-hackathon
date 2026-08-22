@@ -7,6 +7,11 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email,max=100"`
 }
 
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email,max=100"`
+	Password string `json:"password" binding:"required,min=8,max=72"`
+}
+
 type VerifyRegistrationOTPRequest struct {
 	OTP string `json:"otp" binding:"required,len=6,numeric"`
 }

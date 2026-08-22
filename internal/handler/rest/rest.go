@@ -32,6 +32,7 @@ func (r *Rest) MountEndpoint() {
 	baseUrl := r.router.Group("/api/v1")
 
 	auth := baseUrl.Group("/auth")
+	auth.POST("/login", r.Login)
 	auth.POST("/register", r.Register)
 	auth.POST("/register/verify-otp", r.VerifyRegistrationOTP)
 	auth.POST("/register/resend-otp", r.ResendRegistrationOTP)
@@ -46,7 +47,7 @@ func (r *Rest) MountEndpoint() {
 	analysis.GET("/sessions/:sessionID", r.GetAnalysisSession)
 	analysis.GET("/credit-account", r.GetCreditAccount)
 	analysis.POST("/upload", r.UploadAnalysisXLSX)
-	analysis.POST("/sessions", r.CreateAnalysisSession)
+	analysis.POST("/sessions/:uploadID", r.CreateAnalysisSession)
 
 	internal := baseUrl.Group("/internal")
 	internal.Use(r.middleware.AuthenticateAICallback)

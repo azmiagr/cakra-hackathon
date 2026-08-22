@@ -3,9 +3,8 @@ package model
 import "github.com/google/uuid"
 
 type CreateAnalysisSessionRequest struct {
-	UploadID     uuid.UUID `json:"upload_id" binding:"required"`
-	CurrentStock int       `json:"current_stock" binding:"gte=0"`
-	LeadTimeDays int       `json:"lead_time_days" binding:"gte=1,lte=365"`
+	CurrentStock int `json:"current_stock" binding:"gte=0"`
+	LeadTimeDays int `json:"lead_time_days" binding:"gte=1,lte=365"`
 }
 
 type AnalysisUploadResponse struct {

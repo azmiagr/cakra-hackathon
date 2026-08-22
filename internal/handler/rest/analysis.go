@@ -32,6 +32,12 @@ func (r *Rest) UploadAnalysisXLSX(c *gin.Context) {
 }
 
 func (r *Rest) CreateAnalysisSession(c *gin.Context) {
+	uploadID, err := helper.ParseUUIDParam(c, "uploadID", "id unggahan analisis tidak valid")
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
 	user, err := helper.GetAuthenticatedUser(c)
 	if err != nil {
 		response.HandleError(c, err)
@@ -45,7 +51,7 @@ func (r *Rest) CreateAnalysisSession(c *gin.Context) {
 		return
 	}
 
-	result, err := r.service.AnalysisService.CreateSession(user.UserID, req)
+	result, err := r.service.AnalysisService.CreateSession(user.UserID, uploadID, req)
 	if err != nil {
 		response.HandleError(c, err)
 		return

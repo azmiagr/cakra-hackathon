@@ -2,6 +2,8 @@ package repository
 
 import (
 	"github.com/azmiagr/cakra-hackathon/entity"
+	"github.com/azmiagr/cakra-hackathon/model"
+	constants "github.com/azmiagr/cakra-hackathon/pkg/constant"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -22,6 +24,8 @@ type IAnalysisRepository interface {
 	ListSalesHistories(tx *gorm.DB, sessionID uuid.UUID) ([]entity.SalesHistory, error)
 	CreateRecommendationResult(tx *gorm.DB, result *entity.RecommendationResult) error
 	UpdateSessionResult(tx *gorm.DB, sessionID uuid.UUID, status string, demandCategory *string, adiValue, cvSquaredValue *float64, failureCode, failureMessage *string) error
+	ListHistory(tx *gorm.DB, userID uuid.UUID, query model.AnalysisHistoryQuery) ([]model.AnalysisHistoryItem, int, error)
+	GetHistorySummary(tx *gorm.DB, userID uuid.UUID) (*model.AnalysisHistorySummary, error)
 }
 
 type AnalysisRepository struct{ db *gorm.DB }
@@ -192,4 +196,71 @@ func (r *AnalysisRepository) UpdateSessionResult(tx *gorm.DB, sessionID uuid.UUI
 		return err
 	}
 	return nil
+}
+
+func (r *AnalysisRepository) ListHistory(tx *gorm.DB, userID uuid.UUID, query model.AnalysisHistoryQuery) ([]model.AnalysisHistoryItem, int, error) {
+	base := tx.
+		Table("analysis_sessions").
+		Joins("JOIN skus ON skus.sku_id = analysis_sessions.sku_id").
+		Joins("JOIN recommendation_results ON recommendation_results.analysis_session_id = analysis_sessions.analysis_session_id").
+		Where("analysis_sessions.user_id = ? AND analysis_sessions.status = ?", userID, constants.AnalysisSessionCompleted)
+
+	if query.Search != "" {
+		base = base.Where("skus.name LIKE ?", "%"+query.Search+"%")
+	}
+	if query.RiskLabel != "" {
+		base = base.Where("recommendation_results.risk_label = ?", query.RiskLabel)
+	}
+
+	var total int64
+	err := base.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	order := "recommendation_results.created_at DESC"
+	if query.Sort == "oldest" {
+		order = "recommendation_results.created_at ASC"
+	}
+
+	items := make([]model.AnalysisHistoryItem, 0)
+	err = base.
+		Select("analysis_sessions.analysis_session_id AS session_id, skus.sku_id, skus.name AS sku_name, analysis_sessions.status AS session_status, recommendation_results.risk_label, recommendation_results.reorder_point, recommendation_results.reorder_quantity, DATE_FORMAT(recommendation_results.created_at, '%Y-%m-%d') AS analysis_date").
+		Order(order).
+		Limit(query.Limit).
+		Offset((query.Page - 1) * query.Limit).
+		Scan(&items).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, int(total), nil
+}
+
+func (r *AnalysisRepository) GetHistorySummary(tx *gorm.DB, userID uuid.UUID) (*model.AnalysisHistorySummary, error) {
+	summary := &model.AnalysisHistorySummary{}
+
+	var totalAnalysis int64
+	err := tx.
+		Table("analysis_sessions").
+		Where("user_id = ? AND status = ?", userID, constants.AnalysisSessionCompleted).
+		Count(&totalAnalysis).Error
+	if err != nil {
+		return nil, err
+	}
+	summary.TotalAnalysis = int(totalAnalysis)
+
+	var atRiskSKUCount int64
+	err = tx.
+		Table("analysis_sessions").
+		Joins("JOIN recommendation_results ON recommendation_results.analysis_session_id = analysis_sessions.analysis_session_id").
+		Where("analysis_sessions.user_id = ? AND analysis_sessions.status = ? AND recommendation_results.risk_label <> ?", userID, constants.AnalysisSessionCompleted, "NORMAL").
+		Distinct("analysis_sessions.sku_id").
+		Count(&atRiskSKUCount).Error
+	if err != nil {
+		return nil, err
+	}
+	summary.AtRiskSKUCount = int(atRiskSKUCount)
+
+	return summary, nil
 }

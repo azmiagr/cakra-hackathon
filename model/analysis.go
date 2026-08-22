@@ -35,10 +35,95 @@ type AnalysisSessionResponse struct {
 	SessionID        uuid.UUID               `json:"session_id"`
 	Status           string                  `json:"status"`
 	AvailableCredits int                     `json:"available_credits"`
-	AIPayload        AIAnalysisPayload       `json:"ai_payload"`
+	AIPayload        *AIAnalysisPayload      `json:"ai_payload,omitempty"`
 	Recommendation   *RecommendationResponse `json:"recommendation,omitempty"`
+	Result           *AnalysisResultResponse `json:"result,omitempty"`
 	FailureCode      *string                 `json:"failure_code,omitempty"`
 	FailureMessage   *string                 `json:"failure_message,omitempty"`
+}
+
+type AnalysisHistoryQuery struct {
+	Search    string
+	RiskLabel string
+	Page      int
+	Limit     int
+	Sort      string
+}
+
+type AnalysisHistoryResponse struct {
+	Summary    AnalysisHistorySummary `json:"summary"`
+	Items      []AnalysisHistoryItem  `json:"items"`
+	Pagination PaginationResponse     `json:"pagination"`
+}
+
+type AnalysisHistorySummary struct {
+	TotalAnalysis   int      `json:"total_analysis"`
+	AverageAccuracy *float64 `json:"average_accuracy"`
+	AccuracyReady   bool     `json:"accuracy_ready"`
+	AtRiskSKUCount  int      `json:"at_risk_sku_count"`
+}
+
+type AnalysisHistoryItem struct {
+	SessionID       uuid.UUID `json:"session_id"`
+	SKUID           uuid.UUID `json:"sku_id"`
+	SKUName         string    `json:"sku_name"`
+	Category        *string   `json:"category"`
+	SessionStatus   string    `json:"session_status"`
+	RiskLabel       string    `json:"risk_label"`
+	ReorderPoint    int       `json:"reorder_point"`
+	ReorderQuantity int       `json:"reorder_quantity"`
+	AnalysisDate    string    `json:"analysis_date"`
+}
+
+type PaginationResponse struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
+}
+
+type AnalysisResultResponse struct {
+	SKU                AnalysisResultSKU     `json:"sku"`
+	AnalysisDate       string                `json:"analysis_date"`
+	HistoricalData     HistoricalDataSummary `json:"historical_data"`
+	CurrentStock       int                   `json:"current_stock"`
+	LeadTimeDays       int                   `json:"lead_time_days"`
+	TargetServiceLevel float64               `json:"target_service_level"`
+	DemandCategory     string                `json:"demand_category"`
+	AverageDailyDemand float64               `json:"average_daily_demand"`
+	Forecast           ForecastResponse      `json:"forecast"`
+	ReorderPoint       int                   `json:"reorder_point"`
+	ReorderQuantity    int                   `json:"reorder_quantity"`
+	Risk               RiskResponse          `json:"risk"`
+	ExplanationText    string                `json:"explanation_text"`
+}
+
+type AnalysisResultSKU struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type HistoricalDataSummary struct {
+	StartDate  string `json:"start_date"`
+	EndDate    string `json:"end_date"`
+	PeriodDays int    `json:"period_days"`
+	RowCount   int    `json:"row_count"`
+}
+
+type ForecastResponse struct {
+	HorizonDays int             `json:"horizon_days"`
+	Points      []ForecastPoint `json:"points"`
+}
+
+type ForecastPoint struct {
+	Date string  `json:"date"`
+	P50  float64 `json:"p50"`
+	P90  float64 `json:"p90"`
+}
+
+type RiskResponse struct {
+	Label  string `json:"label"`
+	Reason string `json:"reason"`
 }
 
 type RecommendationResponse struct {

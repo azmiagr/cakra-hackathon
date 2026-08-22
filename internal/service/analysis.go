@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"path/filepath"
 	"strconv"
@@ -32,6 +33,7 @@ type IAnalysisService interface {
 	Upload(userID uuid.UUID, file *multipart.FileHeader) (*model.AnalysisUploadResponse, error)
 	CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error)
 	GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error)
+	GetHistory(userID uuid.UUID, query model.AnalysisHistoryQuery) (*model.AnalysisHistoryResponse, error)
 	CompleteFromAI(sessionID uuid.UUID, req model.AIResultRequest) error
 }
 
@@ -227,7 +229,7 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 		SessionID:        session.AnalysisSessionID,
 		Status:           session.Status,
 		AvailableCredits: account.Balance - account.ReservedCredits - 1,
-		AIPayload: model.AIAnalysisPayload{
+		AIPayload: &model.AIAnalysisPayload{
 			AnalysisSessionID: session.AnalysisSessionID,
 			SKUName:           sku.Name,
 			CurrentStock:      session.CurrentStock,
@@ -245,6 +247,14 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 		return nil, appErrors.InternalServer("gagal mengambil sesi analisis")
 	}
 
+	account, err := s.creditRepo.GetByUserID(s.db, userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, appErrors.NotFound("akun kredit tidak ditemukan")
+	}
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil kredit")
+	}
+
 	rows, err := s.analysisRepo.ListSalesHistories(s.db, sessionID)
 	if err != nil {
 		return nil, appErrors.InternalServer("gagal mengambil data analisis")
@@ -260,11 +270,12 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 	}
 
 	response := &model.AnalysisSessionResponse{
-		SessionID:      session.AnalysisSessionID,
-		Status:         session.Status,
-		FailureCode:    session.FailureCode,
-		FailureMessage: session.FailureMessage,
-		AIPayload: model.AIAnalysisPayload{
+		SessionID:        session.AnalysisSessionID,
+		Status:           session.Status,
+		AvailableCredits: account.Balance - account.ReservedCredits,
+		FailureCode:      session.FailureCode,
+		FailureMessage:   session.FailureMessage,
+		AIPayload: &model.AIAnalysisPayload{
 			AnalysisSessionID: session.AnalysisSessionID,
 			SKUName:           sku.Name,
 			CurrentStock:      session.CurrentStock,
@@ -277,7 +288,7 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 		p90 := []float64{}
 		_ = json.Unmarshal([]byte(result.ForecastP50), &p50)
 		_ = json.Unmarshal([]byte(result.ForecastP90), &p90)
-		response.AIPayload = model.AIAnalysisPayload{}
+		response.AIPayload = nil
 		response.Recommendation = &model.RecommendationResponse{
 			DemandCategory:  stringValue(session.DemandCategory),
 			ADIValue:        session.ADIValue,
@@ -290,8 +301,96 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 			RiskReason:      result.RiskReason,
 			ExplanationText: result.ExplanationText,
 		}
+		response.Result = buildAnalysisResult(session, sku, rows, result, p50, p90)
 	}
 	return response, nil
+}
+
+func (s *AnalysisService) GetHistory(userID uuid.UUID, query model.AnalysisHistoryQuery) (*model.AnalysisHistoryResponse, error) {
+	if query.Page < 1 {
+		query.Page = 1
+	}
+	if query.Limit < 1 {
+		query.Limit = 8
+	}
+	if query.Limit > 100 {
+		query.Limit = 100
+	}
+	if query.Sort != "oldest" {
+		query.Sort = "newest"
+	}
+
+	summary, err := s.analysisRepo.GetHistorySummary(s.db, userID)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil ringkasan riwayat analisis")
+	}
+	items, totalItems, err := s.analysisRepo.ListHistory(s.db, userID, query)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil riwayat analisis")
+	}
+
+	totalPages := (totalItems + query.Limit - 1) / query.Limit
+	return &model.AnalysisHistoryResponse{
+		Summary: *summary,
+		Items:   items,
+		Pagination: model.PaginationResponse{
+			Page:       query.Page,
+			Limit:      query.Limit,
+			TotalItems: totalItems,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+func buildAnalysisResult(session *entity.AnalysisSession, sku *entity.SKU, rows []entity.SalesHistory, result *entity.RecommendationResult, p50, p90 []float64) *model.AnalysisResultResponse {
+	historicalData := model.HistoricalDataSummary{
+		RowCount: len(rows),
+	}
+	forecastStart := session.CreatedAt.UTC().AddDate(0, 0, 1)
+	if len(rows) > 0 {
+		startDate := rows[0].SaleDate.UTC()
+		endDate := rows[len(rows)-1].SaleDate.UTC()
+		historicalData.StartDate = startDate.Format("2006-01-02")
+		historicalData.EndDate = endDate.Format("2006-01-02")
+		historicalData.PeriodDays = int(endDate.Sub(startDate).Hours()/24) + 1
+		forecastStart = endDate.AddDate(0, 0, 1)
+	}
+
+	horizon := min(len(p50), len(p90))
+	points := make([]model.ForecastPoint, horizon)
+	var totalDemand float64
+	for i := 0; i < horizon; i++ {
+		points[i] = model.ForecastPoint{
+			Date: forecastStart.AddDate(0, 0, i).Format("2006-01-02"),
+			P50:  p50[i],
+			P90:  p90[i],
+		}
+		totalDemand += p50[i]
+	}
+	averageDemand := float64(0)
+	if horizon > 0 {
+		averageDemand = totalDemand / float64(horizon)
+	}
+	averageDemand = math.Round(averageDemand*100) / 100
+
+	return &model.AnalysisResultResponse{
+		SKU: model.AnalysisResultSKU{
+			ID:   sku.SKUID,
+			Name: sku.Name,
+		},
+		AnalysisDate:       session.CreatedAt.UTC().Format("2006-01-02"),
+		HistoricalData:     historicalData,
+		CurrentStock:       session.CurrentStock,
+		LeadTimeDays:       session.LeadTimeDays,
+		TargetServiceLevel: constants.TargetServiceLevel,
+		DemandCategory:     stringValue(session.DemandCategory),
+		AverageDailyDemand: averageDemand,
+		Forecast:           model.ForecastResponse{HorizonDays: horizon, Points: points},
+		ReorderPoint:       result.ReorderPoint,
+		ReorderQuantity:    result.ReorderQuantity,
+		Risk:               model.RiskResponse{Label: result.RiskLabel, Reason: result.RiskReason},
+		ExplanationText:    result.ExplanationText,
+	}
 }
 
 func (s *AnalysisService) CompleteFromAI(sessionID uuid.UUID, req model.AIResultRequest) error {

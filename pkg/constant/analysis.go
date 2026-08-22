@@ -1,6 +1,8 @@
 package constants
 
 const (
+	TargetServiceLevel = 0.95
+
 	AnalysisUploadValid   = "VALID"
 	AnalysisUploadInvalid = "INVALID"
 

@@ -44,6 +44,7 @@ func (r *Rest) MountEndpoint() {
 
 	analysis := baseUrl.Group("/analysis")
 	analysis.Use(r.middleware.AuthenticateUser)
+	analysis.GET("/history", r.GetAnalysisHistory)
 	analysis.GET("/sessions/:sessionID", r.GetAnalysisSession)
 	analysis.GET("/credit-account", r.GetCreditAccount)
 	analysis.POST("/upload", r.UploadAnalysisXLSX)

@@ -8,10 +8,15 @@ import (
 
 type Service struct {
 	UserService IUserService
+	OtpService  IOtpService
 }
 
 func NewService(repository *repository.Repository, bcrypt bcrypt.Interface, jwtAuth jwt.Interface) *Service {
+	userService := NewUserService(repository.UserRepository)
+	otpService := NewOtpService(repository.OtpRepository, repository.UserRepository)
+
 	return &Service{
-		UserService: NewUserService(repository.UserRepository),
+		UserService: userService,
+		OtpService:  otpService,
 	}
 }

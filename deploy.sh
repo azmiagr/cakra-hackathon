@@ -4,6 +4,9 @@ set -eu
 APP_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$APP_DIR"
 
+git fetch --prune origin main
+git pull --ff-only origin main
+
 if docker compose version >/dev/null 2>&1; then
     COMPOSE="docker compose"
 elif docker-compose version >/dev/null 2>&1; then

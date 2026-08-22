@@ -12,5 +12,7 @@ func LoadAIConfig() (AIConfig, error) {
 	if secret == "" {
 		return AIConfig{}, fmt.Errorf("AI_CALLBACK_SECRET is required")
 	}
-	return AIConfig{CallbackSecret: secret}, nil
+	return AIConfig{
+		CallbackSecret: secret,
+	}, nil
 }

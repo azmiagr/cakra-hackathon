@@ -41,6 +41,16 @@ func (r *Rest) MountEndpoint() {
 	auth.POST("/forgot-password/resend-otp", r.ResendPasswordResetOTP)
 	auth.POST("/forgot-password/password", r.SetPasswordReset)
 
+	analysis := baseUrl.Group("/analysis")
+	analysis.Use(r.middleware.AuthenticateUser)
+	analysis.GET("/sessions/:sessionID", r.GetAnalysisSession)
+	analysis.GET("/credit-account", r.GetCreditAccount)
+	analysis.POST("/upload", r.UploadAnalysisXLSX)
+	analysis.POST("/sessions", r.CreateAnalysisSession)
+
+	internal := baseUrl.Group("/internal")
+	internal.Use(r.middleware.AuthenticateAICallback)
+	internal.POST("/analysis-sessions/:sessionID/result", r.CompleteAnalysisFromAI)
 }
 
 func (r *Rest) Run() {

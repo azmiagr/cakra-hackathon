@@ -4,6 +4,7 @@ import (
 	"github.com/azmiagr/cakra-hackathon/entity"
 	"github.com/azmiagr/cakra-hackathon/internal/repository"
 	"github.com/azmiagr/cakra-hackathon/model"
+	"github.com/azmiagr/cakra-hackathon/pkg/database/mariadb"
 	"gorm.io/gorm"
 )
 
@@ -16,9 +17,9 @@ type UserService struct {
 	userRepo repository.IUserRepository
 }
 
-func NewUserService(db *gorm.DB, userRepo repository.IUserRepository) IUserService {
+func NewUserService(userRepo repository.IUserRepository) IUserService {
 	return &UserService{
-		db:       db,
+		db:       mariadb.Connection,
 		userRepo: userRepo,
 	}
 }

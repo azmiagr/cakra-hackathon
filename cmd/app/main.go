@@ -10,6 +10,7 @@ import (
 	"github.com/azmiagr/cakra-hackathon/pkg/jwt"
 	"github.com/azmiagr/cakra-hackathon/pkg/mail"
 	"github.com/azmiagr/cakra-hackathon/pkg/middleware"
+	"github.com/azmiagr/cakra-hackathon/pkg/supabase"
 	"log"
 )
 
@@ -17,6 +18,10 @@ func main() {
 	config.LoadEnvironment()
 
 	db, err := mariadb.ConnectDatabase()
+	if err != nil {
+		log.Fatal(err)
+	}
+	aiConfig, err := config.LoadAIConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,9 +43,10 @@ func main() {
 	bcryptAuth := bcrypt.Init()
 	jwtAuth := jwt.Init()
 	mailer := mail.Init()
-	svc := service.NewService(db, repo, bcryptAuth, jwtAuth, mailer, registrationConfig)
+	storage := supabase.Init()
+	svc := service.NewService(repo, bcryptAuth, jwtAuth, mailer, registrationConfig, storage)
 
-	middleware := middleware.Init(svc, jwtAuth)
+	middleware := middleware.Init(svc, jwtAuth, aiConfig)
 	r := rest.NewRest(svc, middleware)
 	r.MountEndpoint()
 

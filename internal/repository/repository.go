@@ -4,6 +4,8 @@ import "gorm.io/gorm"
 
 type Repository struct {
 	UserRepository          IUserRepository
+	CreditAccountRepository ICreditAccountRepository
+	AnalysisRepository      IAnalysisRepository
 	OtpRepository           IOtpRepository
 	RegistrationRepository  IRegistrationSessionRepository
 	RoleRepository          IRoleRepository
@@ -13,6 +15,8 @@ type Repository struct {
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{
 		UserRepository:          NewUserRepository(db),
+		CreditAccountRepository: NewCreditAccountRepository(db),
+		AnalysisRepository:      NewAnalysisRepository(db),
 		OtpRepository:           NewOtpRepository(db),
 		RegistrationRepository:  NewRegistrationSessionRepository(db),
 		RoleRepository:          NewRoleRepository(db),

@@ -29,6 +29,23 @@ type Interface interface {
 	DeleteFileByPath(filePath string) error
 	DeleteMultipleFiles(fileURLs []string) error
 	UploadWebP(data []byte, folder string) (string, error)
+	UploadXLSX(data []byte, objectKey string) error
+	DeleteXLSX(objectKey string) error
+}
+
+func (s Supabase) UploadXLSX(data []byte, objectKey string) error {
+	contentType := "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	cacheControl := "0"
+	_, err := s.client.UploadFile(os.Getenv("SUPABASE_BUCKET"), objectKey, bytes.NewReader(data), storage_go.FileOptions{ContentType: &contentType, CacheControl: &cacheControl})
+	return err
+}
+
+func (s Supabase) DeleteXLSX(objectKey string) error {
+	if objectKey == "" {
+		return fmt.Errorf("file path cannot be empty")
+	}
+	_, err := s.client.RemoveFile(os.Getenv("SUPABASE_BUCKET"), []string{objectKey})
+	return err
 }
 
 func Init() Interface {

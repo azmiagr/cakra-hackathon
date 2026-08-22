@@ -19,5 +19,9 @@ type User struct {
 
 	RegistrationSessions RegistrationSession `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
 	PasswordReset        PasswordReset       `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
+	CreditAccount        CreditAccount       `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
+	AnalysisUploads      []AnalysisUpload    `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
+	SKUs                 []SKU               `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
+	AnalysisSessions     []AnalysisSession   `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
 	OtpCodes             []OtpCode           `gorm:"foreignKey:UserID;references:UserID;constraint:OnDelete:CASCADE"`
 }

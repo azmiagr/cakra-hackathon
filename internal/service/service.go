@@ -6,35 +6,21 @@ import (
 	"github.com/azmiagr/cakra-hackathon/pkg/config"
 	"github.com/azmiagr/cakra-hackathon/pkg/jwt"
 	"github.com/azmiagr/cakra-hackathon/pkg/mail"
-	"gorm.io/gorm"
+	"github.com/azmiagr/cakra-hackathon/pkg/supabase"
 )
 
 type Service struct {
-	UserService IUserService
-	AuthService IAuthService
+	UserService     IUserService
+	AuthService     IAuthService
+	AnalysisService IAnalysisService
+	CreditService   ICreditService
 }
 
-func NewService(
-	db *gorm.DB,
-	repository *repository.Repository,
-	bcryptAuth bcrypt.Interface,
-	jwtAuth jwt.Interface,
-	mailer mail.Interface,
-	registrationConf config.RegistrationConfig,
-) *Service {
+func NewService(repository *repository.Repository, bcryptAuth bcrypt.Interface, jwtAuth jwt.Interface, mailer mail.Interface, registrationConf config.RegistrationConfig, storage supabase.Interface) *Service {
 	return &Service{
-		UserService: NewUserService(db, repository.UserRepository),
-		AuthService: NewAuthService(
-			db,
-			repository.UserRepository,
-			repository.OtpRepository,
-			repository.RegistrationRepository,
-			repository.PasswordResetRepository,
-			repository.RoleRepository,
-			bcryptAuth,
-			jwtAuth,
-			mailer,
-			registrationConf,
-		),
+		UserService:     NewUserService(repository.UserRepository),
+		AuthService:     NewAuthService(repository.UserRepository, repository.CreditAccountRepository, repository.OtpRepository, repository.RegistrationRepository, repository.PasswordResetRepository, repository.RoleRepository, bcryptAuth, jwtAuth, mailer, registrationConf),
+		AnalysisService: NewAnalysisService(repository.AnalysisRepository, repository.CreditAccountRepository, storage),
+		CreditService:   NewCreditService(repository.CreditAccountRepository),
 	}
 }

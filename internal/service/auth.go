@@ -17,6 +17,7 @@ import (
 	"github.com/azmiagr/cakra-hackathon/pkg/bcrypt"
 	"github.com/azmiagr/cakra-hackathon/pkg/config"
 	constants "github.com/azmiagr/cakra-hackathon/pkg/constant"
+	"github.com/azmiagr/cakra-hackathon/pkg/database/mariadb"
 	appErrors "github.com/azmiagr/cakra-hackathon/pkg/errors"
 	"github.com/azmiagr/cakra-hackathon/pkg/jwt"
 	"github.com/azmiagr/cakra-hackathon/pkg/mail"
@@ -38,6 +39,7 @@ type IAuthService interface {
 type AuthService struct {
 	db                *gorm.DB
 	userRepo          repository.IUserRepository
+	creditAccountRepo repository.ICreditAccountRepository
 	otpRepo           repository.IOtpRepository
 	sessionRepo       repository.IRegistrationSessionRepository
 	passwordResetRepo repository.IPasswordResetRepository
@@ -49,8 +51,8 @@ type AuthService struct {
 }
 
 func NewAuthService(
-	db *gorm.DB,
 	userRepo repository.IUserRepository,
+	creditAccountRepo repository.ICreditAccountRepository,
 	otpRepo repository.IOtpRepository,
 	sessionRepo repository.IRegistrationSessionRepository,
 	passwordResetRepo repository.IPasswordResetRepository,
@@ -61,8 +63,9 @@ func NewAuthService(
 	registrationConf config.RegistrationConfig,
 ) IAuthService {
 	return &AuthService{
-		db:                db,
+		db:                mariadb.Connection,
 		userRepo:          userRepo,
+		creditAccountRepo: creditAccountRepo,
 		otpRepo:           otpRepo,
 		sessionRepo:       sessionRepo,
 		passwordResetRepo: passwordResetRepo,
@@ -382,6 +385,28 @@ func (s *AuthService) SetRegistrationPassword(sessionToken string, req model.Set
 	err = s.userRepo.ActivateUser(tx, session.UserID, passwordHash)
 	if err != nil {
 		return nil, appErrors.InternalServer("gagal mengaktifkan akun")
+	}
+
+	creditAccount := &entity.CreditAccount{
+		CreditAccountID: uuid.New(),
+		UserID:          session.UserID,
+		Balance:         constants.InitialCreditBalance,
+	}
+	err = s.creditAccountRepo.CreateCreditAccount(tx, creditAccount)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal membuat saldo kredit")
+	}
+
+	err = s.creditAccountRepo.CreateTransaction(tx, &entity.CreditTransaction{
+		CreditTransactionID: uuid.New(),
+		CreditAccountID:     creditAccount.CreditAccountID,
+		Type:                constants.CreditTransactionWelcomeGrant,
+		Amount:              constants.InitialCreditBalance,
+		BalanceAfter:        constants.InitialCreditBalance,
+		IdempotencyKey:      fmt.Sprintf("welcome:%s", session.UserID),
+	})
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mencatat kredit awal")
 	}
 
 	session.Stage = constants.RegistrationSessionComplete

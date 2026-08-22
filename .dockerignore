@@ -1,0 +1,13 @@
+.git
+.github
+.agents
+.codex
+.env
+.env.*
+!.env.example
+tmp
+coverage
+bin
+*.log
+*.md
+deploy

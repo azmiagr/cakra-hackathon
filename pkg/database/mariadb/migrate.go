@@ -15,6 +15,7 @@ func Migrate(db *gorm.DB) error {
 		&entity.AnalysisUpload{},
 		&entity.AnalysisUploadRow{},
 		&entity.UploadValidationError{},
+		&entity.Category{},
 		&entity.SKU{},
 		&entity.AnalysisSession{},
 		&entity.SalesHistory{},
@@ -27,6 +28,5 @@ func Migrate(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

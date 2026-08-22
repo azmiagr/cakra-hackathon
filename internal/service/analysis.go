@@ -34,20 +34,23 @@ type IAnalysisService interface {
 	CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error)
 	GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error)
 	GetHistory(userID uuid.UUID, query model.AnalysisHistoryQuery) (*model.AnalysisHistoryResponse, error)
+	ListCategories(userID uuid.UUID) ([]model.CategoryResponse, error)
 	CompleteFromAI(sessionID uuid.UUID, req model.AIResultRequest) error
 }
 
 type AnalysisService struct {
 	db           *gorm.DB
 	analysisRepo repository.IAnalysisRepository
+	categoryRepo repository.ICategoryRepository
 	creditRepo   repository.ICreditAccountRepository
 	storage      supabase.Interface
 }
 
-func NewAnalysisService(analysisRepo repository.IAnalysisRepository, creditRepo repository.ICreditAccountRepository, storage supabase.Interface) IAnalysisService {
+func NewAnalysisService(analysisRepo repository.IAnalysisRepository, categoryRepo repository.ICategoryRepository, creditRepo repository.ICreditAccountRepository, storage supabase.Interface) IAnalysisService {
 	return &AnalysisService{
 		db:           mariadb.Connection,
 		analysisRepo: analysisRepo,
+		categoryRepo: categoryRepo,
 		creditRepo:   creditRepo,
 		storage:      storage,
 	}
@@ -138,6 +141,11 @@ func (s *AnalysisService) Upload(userID uuid.UUID, file *multipart.FileHeader) (
 }
 
 func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error) {
+	req.CategoryName = strings.TrimSpace(req.CategoryName)
+	if req.CategoryName == "" {
+		return nil, appErrors.BadRequest("kategori produk wajib diisi")
+	}
+
 	tx := s.db.Begin()
 	if tx.Error != nil {
 		return nil, appErrors.InternalServer("gagal memulai analisis")
@@ -167,6 +175,10 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 	if err != nil {
 		return nil, appErrors.InternalServer("gagal memeriksa kredit")
 	}
+	category, err := s.categoryRepo.GetOrCreate(tx, &entity.Category{CategoryID: uuid.New(), UserID: &userID, Name: req.CategoryName})
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal menyimpan kategori produk")
+	}
 	if err := s.creditRepo.ReserveAnalysisCredit(tx, userID, 1); err != nil {
 		if errors.Is(err, repository.ErrInsufficientCredits) {
 			return nil, appErrors.BadRequest("kredit tidak mencukupi")
@@ -181,6 +193,9 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 	})
 	if err != nil {
 		return nil, appErrors.InternalServer("gagal menyimpan SKU")
+	}
+	if err := s.analysisRepo.SetSKUCategory(tx, sku.SKUID, category.CategoryID); err != nil {
+		return nil, appErrors.InternalServer("gagal menetapkan kategori SKU")
 	}
 
 	session := &entity.AnalysisSession{
@@ -236,6 +251,19 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 			LeadTimeDays:      session.LeadTimeDays,
 			SalesHistory:      payloadRows},
 	}, nil
+}
+
+func (s *AnalysisService) ListCategories(userID uuid.UUID) ([]model.CategoryResponse, error) {
+	categories, err := s.categoryRepo.ListByUserID(s.db, userID)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal mengambil kategori produk")
+	}
+
+	response := make([]model.CategoryResponse, len(categories))
+	for i, category := range categories {
+		response[i] = model.CategoryResponse{CategoryID: category.CategoryID, Name: category.Name}
+	}
+	return response, nil
 }
 
 func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error) {

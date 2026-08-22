@@ -3,8 +3,14 @@ package model
 import "github.com/google/uuid"
 
 type CreateAnalysisSessionRequest struct {
-	CurrentStock int `json:"current_stock" binding:"gte=0"`
-	LeadTimeDays int `json:"lead_time_days" binding:"gte=1,lte=365"`
+	CategoryName string `json:"category_name" binding:"required,max=100"`
+	CurrentStock int    `json:"current_stock" binding:"gte=0"`
+	LeadTimeDays int    `json:"lead_time_days" binding:"gte=1,lte=365"`
+}
+
+type CategoryResponse struct {
+	CategoryID uuid.UUID `json:"category_id"`
+	Name       string    `json:"name"`
 }
 
 type AnalysisUploadResponse struct {

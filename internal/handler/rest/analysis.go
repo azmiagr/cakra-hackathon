@@ -47,6 +47,21 @@ func (r *Rest) GetAnalysisHistory(c *gin.Context) {
 	response.Success(c, http.StatusOK, "riwayat analisis berhasil diambil", result)
 }
 
+func (r *Rest) GetCategories(c *gin.Context) {
+	user, err := helper.GetAuthenticatedUser(c)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	result, err := r.service.AnalysisService.ListCategories(user.UserID)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.Success(c, http.StatusOK, "kategori produk berhasil diambil", result)
+}
+
 func optionalPositiveInt(raw string, defaultValue int) (int, error) {
 	if raw == "" {
 		return defaultValue, nil

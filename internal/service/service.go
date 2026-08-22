@@ -20,7 +20,7 @@ func NewService(repository *repository.Repository, bcryptAuth bcrypt.Interface, 
 	return &Service{
 		UserService:     NewUserService(repository.UserRepository),
 		AuthService:     NewAuthService(repository.UserRepository, repository.CreditAccountRepository, repository.OtpRepository, repository.RegistrationRepository, repository.PasswordResetRepository, repository.RoleRepository, bcryptAuth, jwtAuth, mailer, registrationConf),
-		AnalysisService: NewAnalysisService(repository.AnalysisRepository, repository.CreditAccountRepository, storage),
+		AnalysisService: NewAnalysisService(repository.AnalysisRepository, repository.CategoryRepository, repository.CreditAccountRepository, storage),
 		CreditService:   NewCreditService(repository.CreditAccountRepository),
 	}
 }

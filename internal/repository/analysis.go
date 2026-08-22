@@ -17,6 +17,7 @@ type IAnalysisRepository interface {
 	ListUploadRows(tx *gorm.DB, uploadID uuid.UUID) ([]entity.AnalysisUploadRow, error)
 	ListValidationErrors(tx *gorm.DB, uploadID uuid.UUID) ([]entity.UploadValidationError, error)
 	GetOrCreateSKU(tx *gorm.DB, sku *entity.SKU) (*entity.SKU, error)
+	SetSKUCategory(tx *gorm.DB, skuID, categoryID uuid.UUID) error
 	CreateSession(tx *gorm.DB, session *entity.AnalysisSession) error
 	CreateSalesHistories(tx *gorm.DB, rows []entity.SalesHistory) error
 	GetSessionOwned(tx *gorm.DB, sessionID, userID uuid.UUID) (*entity.AnalysisSession, *entity.SKU, *entity.RecommendationResult, error)
@@ -120,6 +121,17 @@ func (r *AnalysisRepository) GetOrCreateSKU(tx *gorm.DB, sku *entity.SKU) (*enti
 
 	return sku, nil
 }
+
+func (r *AnalysisRepository) SetSKUCategory(tx *gorm.DB, skuID, categoryID uuid.UUID) error {
+	err := tx.Model(&entity.SKU{}).
+		Where("sku_id = ?", skuID).
+		Update("category_id", categoryID).
+		Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func (r *AnalysisRepository) CreateSession(tx *gorm.DB, session *entity.AnalysisSession) error {
 	err := tx.Create(session).Error
 	if err != nil {
@@ -202,6 +214,7 @@ func (r *AnalysisRepository) ListHistory(tx *gorm.DB, userID uuid.UUID, query mo
 	base := tx.
 		Table("analysis_sessions").
 		Joins("JOIN skus ON skus.sku_id = analysis_sessions.sku_id").
+		Joins("LEFT JOIN categories ON categories.category_id = skus.category_id").
 		Joins("JOIN recommendation_results ON recommendation_results.analysis_session_id = analysis_sessions.analysis_session_id").
 		Where("analysis_sessions.user_id = ? AND analysis_sessions.status = ?", userID, constants.AnalysisSessionCompleted)
 
@@ -225,7 +238,7 @@ func (r *AnalysisRepository) ListHistory(tx *gorm.DB, userID uuid.UUID, query mo
 
 	items := make([]model.AnalysisHistoryItem, 0)
 	err = base.
-		Select("analysis_sessions.analysis_session_id AS session_id, skus.sku_id, skus.name AS sku_name, analysis_sessions.status AS session_status, recommendation_results.risk_label, recommendation_results.reorder_point, recommendation_results.reorder_quantity, DATE_FORMAT(recommendation_results.created_at, '%Y-%m-%d') AS analysis_date").
+		Select("analysis_sessions.analysis_session_id AS session_id, skus.sku_id, skus.name AS sku_name, categories.name AS category, analysis_sessions.status AS session_status, recommendation_results.risk_label, recommendation_results.reorder_point, recommendation_results.reorder_quantity, DATE_FORMAT(recommendation_results.created_at, '%Y-%m-%d') AS analysis_date").
 		Order(order).
 		Limit(query.Limit).
 		Offset((query.Page - 1) * query.Limit).

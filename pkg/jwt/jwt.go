@@ -14,8 +14,8 @@ import (
 )
 
 type Interface interface {
-	CreateJWTToken(userID uuid.UUID, roleName string) (string, error)
-	ValidateToken(tokenString string) (uuid.UUID, error)
+	CreateJWTToken(userID uuid.UUID, roleName string, sessionVersion int) (string, error)
+	ValidateToken(tokenString string) (TokenIdentity, error)
 	GetLoginUser(c *gin.Context) (*entity.User, error)
 }
 
@@ -25,10 +25,16 @@ type jsonWebToken struct {
 }
 
 type Claims struct {
-	UserID   uuid.UUID
-	IsAdmin  bool
-	RoleName string
+	UserID         uuid.UUID
+	IsAdmin        bool
+	RoleName       string
+	SessionVersion int
 	jwt.RegisteredClaims
+}
+
+type TokenIdentity struct {
+	UserID         uuid.UUID
+	SessionVersion int
 }
 
 func Init() Interface {
@@ -44,10 +50,11 @@ func Init() Interface {
 	}
 }
 
-func (j *jsonWebToken) CreateJWTToken(userID uuid.UUID, roleName string) (string, error) {
+func (j *jsonWebToken) CreateJWTToken(userID uuid.UUID, roleName string, sessionVersion int) (string, error) {
 	claims := &Claims{
-		UserID:   userID,
-		RoleName: roleName,
+		UserID:         userID,
+		RoleName:       roleName,
+		SessionVersion: sessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.ExpiredTime)),
 		},
@@ -62,26 +69,25 @@ func (j *jsonWebToken) CreateJWTToken(userID uuid.UUID, roleName string) (string
 	return tokenString, nil
 }
 
-func (j *jsonWebToken) ValidateToken(tokenString string) (uuid.UUID, error) {
-	var (
-		claim  Claims
-		userID uuid.UUID
-	)
+func (j *jsonWebToken) ValidateToken(tokenString string) (TokenIdentity, error) {
+	var claim Claims
 
 	token, err := jwt.ParseWithClaims(tokenString, &claim, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok || t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, errors.New("unexpected signing method")
+		}
 		return []byte(j.SecretKey), nil
 	})
 
 	if err != nil {
-		return userID, err
+		return TokenIdentity{}, err
 	}
 
 	if !token.Valid {
-		return userID, errors.New("token is not valid")
+		return TokenIdentity{}, errors.New("token is not valid")
 	}
 
-	userID = claim.UserID
-	return userID, nil
+	return TokenIdentity{UserID: claim.UserID, SessionVersion: claim.SessionVersion}, nil
 }
 
 func (j *jsonWebToken) GetLoginUser(c *gin.Context) (*entity.User, error) {

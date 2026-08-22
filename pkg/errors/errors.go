@@ -66,6 +66,22 @@ func InternalServer(message string) *AppError {
 	}
 }
 
+func TooManyRequests(message string) *AppError {
+	return &AppError{
+		Code:    http.StatusTooManyRequests,
+		Message: message,
+		Err:     errors.New(message),
+	}
+}
+
+func ServiceUnavailable(message string) *AppError {
+	return &AppError{
+		Code:    http.StatusServiceUnavailable,
+		Message: message,
+		Err:     errors.New(message),
+	}
+}
+
 func Wrap(err error, code int, message string) *AppError {
 	return &AppError{
 		Code:    code,

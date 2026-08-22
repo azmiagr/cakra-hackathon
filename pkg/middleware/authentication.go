@@ -25,7 +25,7 @@ func (m *middleware) AuthenticateUser(c *gin.Context) {
 	}
 	token := parts[1]
 
-	userID, err := m.jwtAuth.ValidateToken(token)
+	identity, err := m.jwtAuth.ValidateToken(token)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, "failed to validate token", err)
 		c.Abort()
@@ -33,7 +33,7 @@ func (m *middleware) AuthenticateUser(c *gin.Context) {
 	}
 
 	user, err := m.service.UserService.GetUser(model.GetUserParam{
-		UserID: userID,
+		UserID: identity.UserID,
 	})
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, "failed to get user", err)
@@ -43,6 +43,11 @@ func (m *middleware) AuthenticateUser(c *gin.Context) {
 
 	if user.Status != "active" {
 		response.Error(c, http.StatusUnauthorized, "your account has been deactivated. Please contact administrator", nil)
+		c.Abort()
+		return
+	}
+	if user.SessionVersion != identity.SessionVersion {
+		response.Error(c, http.StatusUnauthorized, "token is no longer valid", nil)
 		c.Abort()
 		return
 	}

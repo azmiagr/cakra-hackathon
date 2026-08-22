@@ -47,10 +47,15 @@ func Error(ctx *gin.Context, code int, message string, err error) {
 	})
 }
 
-func HandleError(c *gin.Context, err error) {
+func HandleError(c *gin.Context, err error, fallbackMessages ...string) {
 	if appErr, ok := err.(*errors.AppError); ok {
-		Error(c, appErr.Code, appErr.Message, appErr.Err)
+		Error(c, appErr.Code, appErr.Message, nil)
 		return
 	}
-	Error(c, http.StatusInternalServerError, "internal server error", err)
+
+	message := "internal server error"
+	if len(fallbackMessages) > 0 && fallbackMessages[0] != "" {
+		message = fallbackMessages[0]
+	}
+	Error(c, http.StatusInternalServerError, message, nil)
 }

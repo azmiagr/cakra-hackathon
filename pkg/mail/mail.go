@@ -9,6 +9,43 @@ import (
 	"time"
 )
 
+type Interface interface {
+	SendRegistrationOTP(to, fullName, code string, expiryMinutes int) error
+	SendPasswordResetOTP(to, fullName, code string, expiryMinutes int) error
+}
+
+type sender struct{}
+
+func Init() Interface {
+	return &sender{}
+}
+
+func (s *sender) SendRegistrationOTP(to, fullName, code string, expiryMinutes int) error {
+	htmlBody, err := RenderVerificationEmail(VerificationEmailData{
+		Name:          fullName,
+		Code:          code,
+		ExpiryMinutes: expiryMinutes,
+	})
+	if err != nil {
+		return err
+	}
+
+	return SendEmail(to, "Verifikasi Akun - Cakra", htmlBody)
+}
+
+func (s *sender) SendPasswordResetOTP(to, fullName, code string, expiryMinutes int) error {
+	htmlBody, err := RenderPasswordResetEmail(PasswordResetEmailData{
+		Name:          fullName,
+		Code:          code,
+		ExpiryMinutes: expiryMinutes,
+	})
+	if err != nil {
+		return err
+	}
+
+	return SendEmail(to, "Atur Ulang Password - Cakra", htmlBody)
+}
+
 func SendEmail(to, subject, message string) error {
 	SMTP_HOST := os.Getenv("SMTP_HOST")
 	SMTP_PORT := os.Getenv("SMTP_PORT")

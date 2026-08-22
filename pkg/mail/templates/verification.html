@@ -3,40 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verifikasi Akun - Kode Kabi</title>
+    <title>Verifikasi Akun - Cakra</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background-color: #0B0C10;
-            color: #f8fafc;
+            background-color: #F8FAFC;
+            color: #0F172A;
         }
 
         .wrapper {
             width: 100%;
-            background-color: #0B0C10;
+            background-color: #F8FAFC;
             background-image:
-                radial-gradient(circle at top left, rgba(131, 117, 232, 0.22), transparent 32%),
-                radial-gradient(circle at bottom right, rgba(253, 191, 59, 0.16), transparent 28%);
+                radial-gradient(circle at top left, rgba(59, 108, 245, 0.14), transparent 32%),
+                radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.12), transparent 28%);
             padding: 50px 10px;
         }
 
         .main-card {
-            background-color: #11131a;
+            background-color: #FFFFFF;
             margin: 0 auto;
             max-width: 600px;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-            border: 1px solid #252838;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+            border: 1px solid #E2E8F0;
         }
 
         .brand-header {
-            background-color: #0B0C10;
+            background-color: #FFFFFF;
             padding: 32px 40px 24px;
             text-align: left;
-            border-bottom: 1px solid #252838;
+            border-bottom: 1px solid #E2E8F0;
         }
         .brand-mark {
             display: inline-block;
@@ -45,15 +45,15 @@
             line-height: 42px;
             text-align: center;
             border-radius: 50%;
-            background-color: #FDBF3B;
-            color: #0B0C10;
+            background-color: #2451EA;
+            color: #FFFFFF;
             font-size: 22px;
             font-weight: 900;
             vertical-align: middle;
         }
         .brand-name {
             display: inline-block;
-            color: #ffffff;
+            color: #0F172A;
             font-size: 24px;
             font-weight: 900;
             letter-spacing: 0;
@@ -62,7 +62,7 @@
             text-transform: uppercase;
         }
         .brand-accent {
-            color: #FDBF3B;
+            color: #2451EA;
         }
 
         .content {
@@ -72,32 +72,32 @@
         .headline {
             font-size: 22px;
             font-weight: 700;
-            color: #ffffff;
+            color: #0F172A;
             margin: 0 0 20px 0;
             letter-spacing: 0;
         }
         .headline-accent {
-            color: #F26D6D;
+            color: #F59E0B;
         }
         .text-body {
             font-size: 15px;
             line-height: 1.7;
-            color: #a7adbd;
+            color: #475569;
             margin-bottom: 30px;
         }
 
         .otp-section {
-            background-color: #171923;
+            background-color: #EEF2FF;
             border-radius: 8px;
             padding: 30px;
             text-align: center;
-            border: 1px solid #2c3042;
+            border: 1px solid #BFCFFE;
             margin-bottom: 35px;
         }
         .otp-label {
             font-size: 12px;
             font-weight: 600;
-            color: #8375E8;
+            color: #2451EA;
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-bottom: 10px;
@@ -107,7 +107,7 @@
             font-size: 40px;
             font-weight: 800;
             letter-spacing: 10px;
-            color: #FDBF3B;
+            color: #1C3FD7;
             margin: 0;
             font-family: 'Courier New', Courier, monospace;
         }
@@ -117,7 +117,7 @@
             margin-bottom: 20px;
         }
         .btn-primary {
-            background-color: #8375E8;
+            background-color: #2451EA;
             color: #ffffff !important;
             padding: 15px 40px;
             text-decoration: none;
@@ -129,25 +129,25 @@
 
         .footer {
             padding: 30px 40px;
-            background-color: #0B0C10;
-            border-top: 1px solid #252838;
+            background-color: #F8FAFC;
+            border-top: 1px solid #E2E8F0;
             font-size: 12px;
-            color: #8d94a7;
+            color: #64748B;
             line-height: 1.6;
         }
         .security-note {
-            color: #F26D6D;
+            color: #DC2626;
             font-weight: 600;
         }
         .success-note {
-            color: #5BB56A;
+            color: #16A34A;
             font-weight: 700;
         }
         .copyright {
             margin-top: 25px;
             text-align: center;
             font-size: 11px;
-            border-top: 1px solid #252838;
+            border-top: 1px solid #E2E8F0;
             padding-top: 20px;
         }
 
@@ -163,19 +163,19 @@
         <table class="main-card" cellpadding="0" cellspacing="0">
             <tr>
                 <td class="brand-header">
-                    <span class="brand-mark">K</span>
-                    <span class="brand-name">Kode<span class="brand-accent">Kabi</span></span>
+                    <span class="brand-mark">C</span>
+                    <span class="brand-name">Cak<span class="brand-accent">ra</span></span>
                 </td>
             </tr>
             <tr>
                 <td class="content">
-                    <h1 class="headline">Cek Email Kamu<span class="headline-accent">.</span></h1>
+                    <h1 class="headline">Verifikasi email kamu<span class="headline-accent">.</span></h1>
                     
                     <p class="text-body">
-                        Hai, <strong>{{.Name}}</strong>,<br><br>
-                        Terima kasih sudah mendaftar di <strong>Kode Kabi</strong>. Satu langkah lagi sebelum kamu masuk ke Kota Nusa dan mulai jadi auditor baru.
+                        Halo, <strong>{{.Name}}</strong>,<br><br>
+                        Terima kasih sudah membuat akun <strong>Cakra</strong>. Untuk melanjutkan, masukkan kode verifikasi di bawah ini pada halaman pendaftaran.
                         <br><br>
-                        Masukkan kode verifikasi berikut untuk melanjutkan proses registrasi:
+                        Jangan bagikan kode ini kepada siapa pun, termasuk pihak yang mengatasnamakan Cakra.
                     </p>
 
                     <div class="otp-section">
@@ -185,11 +185,11 @@
 
                     {{if .VerificationLink}}
                     <p class="text-body" style="text-align: center; font-size: 14px;">
-                        Atau klik tautan di bawah ini untuk verifikasi secara langsung:
+                        Atau, verifikasi emailmu langsung melalui tombol berikut:
                     </p>
 
                     <div class="btn-container">
-                        <a href="{{.VerificationLink}}" class="btn-primary">Verifikasi Akun</a>
+                        <a href="{{.VerificationLink}}" class="btn-primary">Verifikasi Email</a>
                     </div>
                     {{end}}
                 </td>
@@ -198,14 +198,16 @@
                 <td class="footer">
                     <strong>Penting:</strong>
                     <br>
-                    Kode verifikasi ini bersifat rahasia dan hanya berlaku selama <strong>{{.ExpiryMinutes}} menit</strong>. Mohon untuk tidak memberikan kode ini kepada pihak manapun.
+                    Kode verifikasi ini bersifat rahasia dan hanya berlaku selama <strong>{{.ExpiryMinutes}} menit</strong>.
                     <br><br>
-                    <span class="security-note">Waspada Penipuan:</span> Kode Kabi tidak pernah meminta kata sandi, OTP, atau data sensitif lewat saluran tidak resmi.
+                    <span class="security-note">Waspada penipuan:</span> Cakra tidak pernah meminta kata sandi, OTP, atau data sensitif melalui chat, telepon, maupun kanal tidak resmi.
                     <br><br>
-                    <span class="success-note">Sampai jumpa di Kota Nusa.</span>
+                    Jika kamu tidak merasa membuat akun Cakra, abaikan email ini. Akunmu tidak akan dibuat tanpa kode verifikasi tersebut.
+                    <br><br>
+                    <span class="success-note">Selamat datang di Cakra.</span>
                     
                     <div class="copyright">
-                        &copy; {{.Year}} <strong>Kode Kabi</strong>. Seluruh hak cipta dilindungi undang-undang.
+                        &copy; {{.Year}} <strong>Cakra</strong>. Seluruh hak cipta dilindungi undang-undang.
                     </div>
                 </td>
             </tr>

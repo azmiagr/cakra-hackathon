@@ -46,6 +46,29 @@ func RenderVerificationEmail(data VerificationEmailData) (string, error) {
 	return buf.String(), nil
 }
 
+type PasswordResetEmailData struct {
+	Name          string
+	Code          string
+	ExpiryMinutes int
+	Year          int
+}
+
+func RenderPasswordResetEmail(data PasswordResetEmailData) (string, error) {
+	if data.Year == 0 {
+		data.Year = time.Now().Year()
+	}
+	if data.ExpiryMinutes == 0 {
+		data.ExpiryMinutes = 10
+	}
+
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "password_reset.html", data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
 type PreOrderEmailData struct {
 	Name         string
 	PreOrderName string

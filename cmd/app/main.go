@@ -8,6 +8,7 @@ import (
 	"github.com/azmiagr/cakra-hackathon/pkg/config"
 	"github.com/azmiagr/cakra-hackathon/pkg/database/mariadb"
 	"github.com/azmiagr/cakra-hackathon/pkg/jwt"
+	"github.com/azmiagr/cakra-hackathon/pkg/mail"
 	"github.com/azmiagr/cakra-hackathon/pkg/middleware"
 	"log"
 )
@@ -24,13 +25,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := mariadb.Seed(db); err != nil {
+		log.Fatal(err)
+	}
+
+	registrationConfig, err := config.LoadRegistrationConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	repo := repository.NewRepository(db)
-	bcrypt := bcrypt.Init()
-	jwt := jwt.Init()
-	svc := service.NewService(repo, bcrypt, jwt)
+	bcryptAuth := bcrypt.Init()
+	jwtAuth := jwt.Init()
+	mailer := mail.Init()
+	svc := service.NewService(db, repo, bcryptAuth, jwtAuth, mailer, registrationConfig)
 
-	middleware := middleware.Init(svc, jwt)
+	middleware := middleware.Init(svc, jwtAuth)
 	r := rest.NewRest(svc, middleware)
 	r.MountEndpoint()
 

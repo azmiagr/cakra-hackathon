@@ -26,6 +26,17 @@ func NewRest(service *service.Service, middleware middleware.Interface) *Rest {
 
 func (r *Rest) MountEndpoint() {
 	r.router.Use(r.middleware.Cors())
+	baseUrl := r.router.Group("/api/v1")
+
+	auth := baseUrl.Group("/auth")
+	auth.POST("/register", r.Register)
+	auth.POST("/register/verify-otp", r.VerifyRegistrationOTP)
+	auth.POST("/register/resend-otp", r.ResendRegistrationOTP)
+	auth.POST("/register/password", r.SetRegistrationPassword)
+	auth.POST("/forgot-password", r.RequestPasswordReset)
+	auth.POST("/forgot-password/verify-otp", r.VerifyPasswordResetOTP)
+	auth.POST("/forgot-password/resend-otp", r.ResendPasswordResetOTP)
+	auth.POST("/forgot-password/password", r.SetPasswordReset)
 
 }
 

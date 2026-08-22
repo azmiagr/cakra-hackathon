@@ -11,6 +11,8 @@ func Migrate(db *gorm.DB) error {
 		&entity.Role{},
 		&entity.User{},
 		&entity.OtpCode{},
+		&entity.RegistrationSession{},
+		&entity.PasswordReset{},
 	)
 
 	if err != nil {

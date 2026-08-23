@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/azmiagr/cakra-hackathon/entity"
 	constants "github.com/azmiagr/cakra-hackathon/pkg/constant"
@@ -25,6 +26,7 @@ type ICreditAccountRepository interface {
 	ReserveAnalysisCredit(tx *gorm.DB, userID uuid.UUID, cost int) error
 	CompleteAnalysisDebit(tx *gorm.DB, userID, analysisSessionID uuid.UUID, cost int) error
 	ReleaseAnalysisCredit(tx *gorm.DB, userID uuid.UUID, cost int) error
+	GetAnalysisCreditsUsed(tx *gorm.DB, creditAccountID uuid.UUID, start, end time.Time) (int, error)
 }
 
 type CreditAccountRepository struct {
@@ -168,6 +170,18 @@ func (r *CreditAccountRepository) ReleaseAnalysisCredit(tx *gorm.DB, userID uuid
 	}
 
 	return nil
+}
+
+func (r *CreditAccountRepository) GetAnalysisCreditsUsed(tx *gorm.DB, creditAccountID uuid.UUID, start, end time.Time) (int, error) {
+	var used int
+	err := tx.Model(&entity.CreditTransaction{}).
+		Select("COALESCE(SUM(-amount), 0)").
+		Where("credit_account_id = ? AND type = ? AND created_at >= ? AND created_at < ?", creditAccountID, constants.CreditTransactionAnalysisDebit, start, end).
+		Scan(&used).Error
+	if err != nil {
+		return 0, err
+	}
+	return used, nil
 }
 
 func analysisDebitIdempotencyKey(analysisSessionID uuid.UUID) string {

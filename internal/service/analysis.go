@@ -297,6 +297,13 @@ func (s *AnalysisService) GetDashboard(userID uuid.UUID, userName, search string
 	}
 
 	availableCredits := account.Balance - account.ReservedCredits
+	now := time.Now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	nextMonthStart := monthStart.AddDate(0, 1, 0)
+	creditUsedThisMonth, err := s.creditRepo.GetAnalysisCreditsUsed(s.db, account.CreditAccountID, monthStart, nextMonthStart)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal menghitung pemakaian kredit bulan ini")
+	}
 	return &model.DashboardResponse{
 		UserName:          userName,
 		TotalAnalyzedSKUs: totalSKUs,
@@ -311,6 +318,7 @@ func (s *AnalysisService) GetDashboard(userID uuid.UUID, userName, search string
 			ReservedCredits:  account.ReservedCredits,
 			AvailableCredits: availableCredits,
 		},
+		CreditUsedThisMonth: creditUsedThisMonth,
 	}, nil
 }
 

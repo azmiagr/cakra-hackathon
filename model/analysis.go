@@ -89,15 +89,16 @@ type PaginationResponse struct {
 }
 
 type DashboardResponse struct {
-	UserName          string                `json:"user_name"`
-	TotalAnalyzedSKUs int                   `json:"total_analyzed_skus"`
-	AvailableCredits  int                   `json:"available_credits"`
-	StockoutRiskCount int                   `json:"stockout_risk_count"`
-	AverageAccuracy   *float64              `json:"average_accuracy"`
-	AccuracyReady     bool                  `json:"accuracy_ready"`
-	RecentAnalyses    []AnalysisHistoryItem `json:"recent_analyses"`
-	UrgentSKUs        []DashboardAlert      `json:"urgent_skus"`
-	CreditAccount     CreditAccountResponse `json:"credit_account"`
+	UserName            string                `json:"user_name"`
+	TotalAnalyzedSKUs   int                   `json:"total_analyzed_skus"`
+	AvailableCredits    int                   `json:"available_credits"`
+	StockoutRiskCount   int                   `json:"stockout_risk_count"`
+	AverageAccuracy     *float64              `json:"average_accuracy"`
+	AccuracyReady       bool                  `json:"accuracy_ready"`
+	RecentAnalyses      []AnalysisHistoryItem `json:"recent_analyses"`
+	UrgentSKUs          []DashboardAlert      `json:"urgent_skus"`
+	CreditAccount       CreditAccountResponse `json:"credit_account"`
+	CreditUsedThisMonth int                   `json:"credit_used_this_month"`
 }
 
 type DashboardAlert struct {

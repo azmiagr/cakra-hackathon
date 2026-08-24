@@ -27,6 +27,22 @@ func (r *Rest) Login(c *gin.Context) {
 	response.Success(c, http.StatusOK, "login berhasil", result)
 }
 
+func (r *Rest) Logout(c *gin.Context) {
+	user, err := r.middleware.GetAuthenticatedUser(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "failed to get authenticated user", nil)
+		return
+	}
+
+	err = r.service.AuthService.Logout(user.UserID)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "logout berhasil", nil)
+}
+
 func (r *Rest) Register(c *gin.Context) {
 	var req model.RegisterRequest
 	err := c.ShouldBindJSON(&req)

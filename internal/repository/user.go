@@ -12,6 +12,7 @@ type IUserRepository interface {
 	CreateUser(tx *gorm.DB, user *entity.User) error
 	UpdateUser(tx *gorm.DB, user *entity.User) error
 	ActivateUser(tx *gorm.DB, userID uuid.UUID, passwordHash string) error
+	IncrementSessionVersion(tx *gorm.DB, userID uuid.UUID) error
 	UpdatePasswordAndIncrementSessionVersion(tx *gorm.DB, userID uuid.UUID, passwordHash string) error
 }
 
@@ -63,6 +64,16 @@ func (r *UserRepository) ActivateUser(tx *gorm.DB, userID uuid.UUID, passwordHas
 			"password": passwordHash,
 			"status":   "active",
 		}).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *UserRepository) IncrementSessionVersion(tx *gorm.DB, userID uuid.UUID) error {
+	err := tx.Model(&entity.User{}).
+		Where("user_id = ?", userID).
+		Update("session_version", gorm.Expr("session_version + ?", 1)).Error
 	if err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ import (
 type IAuthService interface {
 	Login(req model.LoginRequest) (*model.CompleteRegistrationResult, error)
 	Register(req model.RegisterRequest) (*model.RegistrationResult, error)
+	Logout(userID uuid.UUID) error
 	VerifyRegistrationOTP(sessionToken string, req model.VerifyRegistrationOTPRequest) (*model.RegistrationResult, error)
 	ResendRegistrationOTP(sessionToken string) error
 	SetRegistrationPassword(sessionToken string, req model.SetRegistrationPasswordRequest) (*model.CompleteRegistrationResult, error)
@@ -35,43 +36,6 @@ type IAuthService interface {
 	VerifyPasswordResetOTP(sessionToken string, req model.VerifyPasswordResetOTPRequest) (*model.PasswordResetResult, error)
 	ResendPasswordResetOTP(sessionToken string) error
 	SetPasswordReset(sessionToken string, req model.SetPasswordResetRequest) error
-}
-
-func (s *AuthService) Login(req model.LoginRequest) (*model.CompleteRegistrationResult, error) {
-	email, err := normalizeEmail(req.Email)
-	if err != nil {
-		return nil, err
-	}
-	if len(req.Password) < 8 || len(req.Password) > 72 {
-		return nil, appErrors.BadRequest("password harus terdiri dari 8 sampai 72 karakter")
-	}
-
-	user, err := s.userRepo.GetUser(s.db, model.GetUserParam{Email: email})
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, appErrors.Unauthorized("email atau password salah")
-	}
-	if err != nil {
-		return nil, appErrors.InternalServer("gagal memproses login")
-	}
-	if user == nil || user.Password == nil {
-		return nil, appErrors.Unauthorized("email atau password salah")
-	}
-	if user.Status != "active" {
-		return nil, appErrors.Unauthorized("akun belum aktif")
-	}
-	if err := s.bcrypt.CompareAndHashPassword(*user.Password, req.Password); err != nil {
-		return nil, appErrors.Unauthorized("email atau password salah")
-	}
-
-	accessToken, err := s.jwt.CreateJWTToken(user.UserID, constants.RoleUser, user.SessionVersion)
-	if err != nil {
-		return nil, appErrors.InternalServer("gagal membuat access token")
-	}
-
-	return &model.CompleteRegistrationResult{
-		AccessToken: accessToken,
-		TokenType:   "Bearer",
-	}, nil
 }
 
 type AuthService struct {
@@ -113,6 +77,63 @@ func NewAuthService(
 		mailer:            mailer,
 		registrationConf:  registrationConf,
 	}
+}
+
+func (s *AuthService) Login(req model.LoginRequest) (*model.CompleteRegistrationResult, error) {
+	email, err := normalizeEmail(req.Email)
+	if err != nil {
+		return nil, err
+	}
+	if len(req.Password) < 8 || len(req.Password) > 72 {
+		return nil, appErrors.BadRequest("password harus terdiri dari 8 sampai 72 karakter")
+	}
+
+	user, err := s.userRepo.GetUser(s.db, model.GetUserParam{Email: email})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, appErrors.Unauthorized("email atau password salah")
+	}
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal memproses login")
+	}
+	if user == nil || user.Password == nil {
+		return nil, appErrors.Unauthorized("email atau password salah")
+	}
+	if user.Status != "active" {
+		return nil, appErrors.Unauthorized("akun belum aktif")
+	}
+	if err := s.bcrypt.CompareAndHashPassword(*user.Password, req.Password); err != nil {
+		return nil, appErrors.Unauthorized("email atau password salah")
+	}
+
+	accessToken, err := s.jwt.CreateJWTToken(user.UserID, constants.RoleUser, user.SessionVersion)
+	if err != nil {
+		return nil, appErrors.InternalServer("gagal membuat access token")
+	}
+
+	return &model.CompleteRegistrationResult{
+		AccessToken: accessToken,
+		TokenType:   "Bearer",
+	}, nil
+}
+
+func (s *AuthService) Logout(userID uuid.UUID) error {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return appErrors.InternalServer("gagal logout")
+	}
+	defer tx.Rollback()
+
+	err := s.userRepo.IncrementSessionVersion(tx, userID)
+	if err != nil {
+		return appErrors.InternalServer("gagal logout")
+	}
+
+	err = tx.Commit().Error
+	if err != nil {
+		return appErrors.InternalServer("gagal logout")
+	}
+
+	return nil
 }
 
 func (s *AuthService) Register(req model.RegisterRequest) (*model.RegistrationResult, error) {

@@ -2,6 +2,9 @@ package middleware
 
 import (
 	"crypto/subtle"
+	"errors"
+
+	"github.com/azmiagr/cakra-hackathon/entity"
 	"github.com/azmiagr/cakra-hackathon/internal/service"
 	"github.com/azmiagr/cakra-hackathon/pkg/config"
 	"github.com/azmiagr/cakra-hackathon/pkg/jwt"
@@ -13,6 +16,7 @@ type Interface interface {
 	Cors() gin.HandlerFunc
 	AuthenticateUser(c *gin.Context)
 	AuthenticateAICallback(c *gin.Context)
+	GetAuthenticatedUser(c *gin.Context) (*entity.User, error)
 }
 
 type middleware struct {
@@ -37,4 +41,18 @@ func (m *middleware) AuthenticateAICallback(c *gin.Context) {
 		return
 	}
 	c.Next()
+}
+
+func (m *middleware) GetAuthenticatedUser(c *gin.Context) (*entity.User, error) {
+	value, ok := c.Get("user")
+	if !ok {
+		return nil, errors.New("authenticated user is missing from context")
+	}
+
+	user, ok := value.(*entity.User)
+	if !ok {
+		return nil, errors.New("authenticated user has an invalid context type")
+	}
+
+	return user, nil
 }

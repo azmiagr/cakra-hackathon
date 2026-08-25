@@ -105,18 +105,18 @@ Use this option when MariaDB and all external dependencies are already available
 
 ## Important Configuration
 
-| Variable | Purpose |
-| --- | --- |
-| `DB_*` | MariaDB connection settings. In Docker, the application automatically uses host `db` and port `3306`. |
-| `APP_HOST_PORT` | Host port for the Docker API; defaults to `8082`. |
-| `JWT_SECRET_KEY` | Secret used to sign access tokens. Use a long, random value. |
-| `SMTP_*` | Credentials used to send registration and password-reset OTP emails. |
-| `SUPABASE_*` | Object-storage configuration for uploaded XLSX files. |
-| `AI_BASE_URL` | Cakra AI endpoint. Use the public HTTPS URL for development, or `http://cakra-ai:7860` when both containers are on the same Docker network. |
-| `AI_REQUEST_TIMEOUT_SECONDS` | Timeout for `POST /predict`; defaults to `60`. |
-| `AI_API_KEY` | Optional API key if the AI service enables authentication. |
-| `AI_CALLBACK_SECRET` | Secret for the legacy internal callback endpoint; still required for compatibility. |
-| `ALLOWED_ORIGINS` | Comma-separated frontend origins, for example `http://localhost:3000,https://app.example.com`. Each value must exactly match the browser origin. |
+| Variable                     | Purpose                                                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DB_*`                       | MariaDB connection settings. In Docker, the application automatically uses host `db` and port `3306`.                                            |
+| `APP_HOST_PORT`              | Host port for the Docker API; defaults to `8082`.                                                                                                |
+| `JWT_SECRET_KEY`             | Secret used to sign access tokens. Use a long, random value.                                                                                     |
+| `SMTP_*`                     | Credentials used to send registration and password-reset OTP emails.                                                                             |
+| `SUPABASE_*`                 | Object-storage configuration for uploaded XLSX files.                                                                                            |
+| `AI_BASE_URL`                | Cakra AI endpoint. Use the public HTTPS URL for development, or `http://cakra-ai:7860` when both containers are on the same Docker network.      |
+| `AI_REQUEST_TIMEOUT_SECONDS` | Timeout for `POST /predict`; defaults to `60`.                                                                                                   |
+| `AI_API_KEY`                 | Optional API key if the AI service enables authentication.                                                                                       |
+| `AI_CALLBACK_SECRET`         | Secret for the legacy internal callback endpoint; still required for compatibility.                                                              |
+| `ALLOWED_ORIGINS`            | Comma-separated frontend origins, for example `http://localhost:3000,https://app.example.com`. Each value must exactly match the browser origin. |
 
 After changing `.env` in a Docker deployment, recreate the API container to apply the new environment:
 
@@ -137,8 +137,6 @@ To confirm that the API container can reach Cakra AI:
 ```bash
 docker compose exec app sh -c 'wget -q -O- "$AI_BASE_URL/health"'
 ```
-
-The AI contract is documented in [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
 
 ## Analysis Upload Format
 

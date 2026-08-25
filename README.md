@@ -1,192 +1,221 @@
-# Cakra Hackathon
+# Cakra Backend API
 
-A clean Go REST API with a simple 3-layer architecture. It includes the common pieces needed for an HTTP service, database access, authentication utilities, middleware, configuration, and standardized JSON responses.
+The REST API for Cakra. It handles user authentication, XLSX sales-data uploads, inventory analysis through Cakra AI, analysis credits, and result history.
 
-## Tech Stack
+## Prerequisites
 
-| Package                                                       | Purpose                     |
-| ------------------------------------------------------------- | --------------------------- |
-| [Gin](https://github.com/gin-gonic/gin)                       | HTTP web framework          |
-| [GORM](https://gorm.io)                                       | ORM for database operations |
-| [gorm/driver/mysql](https://github.com/go-gorm/mysql)         | MariaDB/MySQL driver        |
-| [golang-jwt/jwt](https://github.com/golang-jwt/jwt)           | JWT authentication          |
-| [google/uuid](https://github.com/google/uuid)                 | UUID generation             |
-| [joho/godotenv](https://github.com/joho/godotenv)             | `.env` file loading         |
-| [golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) | Bcrypt password hashing     |
+- Git
+- Docker Engine and Docker Compose v2 for the recommended setup
+- Go `1.25.5` only when running the backend directly on the host
+- Access to MariaDB, Supabase Storage, SMTP, and Cakra AI
 
----
+## Run with Docker
 
-## Folder Structure
-
-```
-project-root/
-├── cmd/
-│   └── app/
-│       └── main.go           # Entry point: wires all dependencies and starts the server
-├── entity/
-│   └── your_entity.go        # GORM models (mapped to database tables)
-├── internal/                 # Core application code (3-layer architecture)
-│   ├── handler/
-│   │   └── rest/
-│   │       └── rest.go       # HTTP layer: receives requests, sends responses
-│   ├── repository/
-│   │   └── repository.go     # Data access layer: database operations via GORM
-│   └── service/
-│       └── service.go        # Business logic layer
-├── model/
-│   └── your_model.go         # DTOs for request/response serialization
-├── pkg/                      # Shared utilities
-│   ├── bcrypt/
-│   │   └── bcrypt.go         # Password hashing (bcrypt, cost=10)
-│   ├── config/
-│   │   ├── config.go         # Loads .env file via godotenv
-│   │   └── database.go       # Builds the DSN connection string
-│   ├── constant/
-│   │   └── role.go           # Application-wide constants (e.g. role UUIDs)
-│   ├── database/
-│   │   ├── mariadb.go        # Opens the GORM database connection
-│   │   └── migrate.go        # Runs GORM AutoMigrate on startup
-│   ├── errors/
-│   │   └── errors.go         # Custom AppError type with HTTP status codes
-│   ├── jwt/
-│   │   └── jwt.go            # JWT creation and validation
-│   ├── middleware/
-│   │   └── middleware.go     # Gin middleware (auth guards, etc.)
-│   └── response/
-│       └── response.go       # Standardized JSON response envelope
-├── .env.example              # Environment variable template
-├── go.mod
-└── go.sum
-```
-
----
-
-## Architecture
-
-The core application code lives in the `internal/` directory, which keeps a strict 3-layer separation of concerns.
-
-```
-HTTP Request
-     │
-     ▼
-┌─────────────────────┐
-│   Handler / REST    │  ← Receives requests, validates input, returns responses
-│  internal/handler/  │
-└────────┬────────────┘
-         │ calls
-         ▼
-┌─────────────────────┐
-│      Service        │  ← Business logic, orchestrates data flow
-│  internal/service/  │
-└────────┬────────────┘
-         │ calls
-         ▼
-┌─────────────────────┐
-│     Repository      │  ← Database operations (GORM queries)
-│ internal/repository/│
-└────────┬────────────┘
-         │
-         ▼
-      Database
-    (MariaDB / MySQL)
-```
-
-### Layer Responsibilities
-
-**`internal/repository/`**
-Owns all direct database interaction. Each method corresponds to a specific query or mutation. Receives a `*gorm.DB` instance and is the only layer allowed to call GORM methods.
-
-**`internal/service/`**
-Contains business logic. Depends on the repository for data access and on `pkg/bcrypt` and `pkg/jwt` for cross-cutting concerns. Never imports GORM directly.
-
-**`internal/handler/rest/`**
-The outermost layer. Binds HTTP routes via Gin, parses request bodies, calls the service, and writes back JSON responses using the shared `pkg/response` formatter.
-
----
-
-## Dependency Injection
-
-All dependencies are wired manually in `cmd/app/main.go` using constructor injection — no DI framework required.
-
-```
-main()
-  ├── config.LoadEnvironment()         # Load .env
-  ├── mariadb.ConnectDatabase()        # Open *gorm.DB
-  ├── mariadb.Migrate()                # Auto-migrate tables
-  │
-  ├── repository.NewRepository(db)     # Data layer
-  ├── bcrypt.Init()                    # Password util
-  ├── jwt.Init()                       # Auth util
-  ├── service.NewService(repo, bcrypt, jwt)   # Business logic
-  ├── middleware.Init(service, jwt)    # Middleware chain
-  └── rest.NewRest(service, middleware)
-        ├── rest.MountEndpoint()       # Register routes
-        └── rest.Run()                 # Start server
-```
-
----
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in the values before running.
-
-| Variable         | Description                               | Example              |
-| ---------------- | ----------------------------------------- | -------------------- |
-| `DB_HOST`        | Database host                             | `localhost`          |
-| `DB_PORT`        | Database port                             | `3306`               |
-| `DB_NAME`        | Database name                             | `myapp`              |
-| `DB_USER`        | Database user                             | `root`               |
-| `DB_PASSWORD`    | Database password                         | `secret`             |
-| `ADDRESS`        | Server bind address                       | `localhost`          |
-| `PORT`           | Server port                               | `8080`               |
-| `TIME_OUT_LIMIT` | Request timeout (seconds)                 | `10`                 |
-| `JWT_SECRET_KEY` | Secret key for signing JWTs (min 256-bit) | `a-very-long-secret` |
-| `JWT_EXP_TIME`   | JWT expiration in hours                   | `1`                  |
-
----
-
-## Getting Started
-
-1. **Create your project**
+1. Clone the repository and enter the project directory.
 
    ```bash
-   git clone <repository-url> <project-name>
-   cd <project-name>
+   git clone https://github.com/azmiagr/cakra-hackathon.git
+   cd cakra-hackathon
    ```
 
-2. **Update the module path**
-
-   ```bash
-   go mod edit -module <your-module-path>
-   ```
-
-3. **Set up environment**
+2. Create a local configuration file.
 
    ```bash
    cp .env.example .env
-   # Edit .env with your database credentials and config
    ```
 
-4. **Install dependencies**
+3. Fill in all placeholders in `.env`. The following values are required before Compose can start the `app` service:
+
+   ```env
+   DB_NAME=cakra-hackathon
+   DB_USER=cakra
+   DB_PASSWORD=replace-with-a-strong-password
+   DB_ROOT_PASSWORD=replace-with-a-separate-strong-root-password
+
+   JWT_SECRET_KEY=replace-with-a-long-random-secret
+
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USERNAME=you@example.com
+   SMTP_PASSWORD=your-smtp-app-password
+
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_TOKEN=your-supabase-service-role-token
+   SUPABASE_BUCKET=your-bucket
+
+   AI_CALLBACK_SECRET=replace-with-a-long-random-secret
+   AI_BASE_URL=https://chakrai.akademicompetition.id
+   AI_REQUEST_TIMEOUT_SECONDS=60
+   AI_API_KEY=
+
+   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+   ```
+
+   `AI_API_KEY` may remain empty while the Cakra AI deployment does not require the `X-API-Key` header. Never commit `.env`.
+
+4. Build and start the database and API.
 
    ```bash
-   go mod tidy
+   docker compose up -d --build
    ```
 
-5. **Start building**
-   - Define your database models in `entity/`
-   - Add them to `pkg/database/migrate.go`
-   - Add request/response structs in `model/`
-   - Implement repository methods in `internal/repository/`
-   - Implement business logic in `internal/service/`
-   - Register routes and handlers in `internal/handler/rest/`
-
-6. **Run**
+5. Confirm that both services are healthy.
 
    ```bash
-   go run cmd/app/main.go
+   docker compose ps
+   curl http://localhost:8082/healthz
    ```
 
+   By default, the API is bound to `127.0.0.1`. Use a reverse proxy such as Nginx or Caddy for public HTTPS access.
+
+6. Inspect logs if startup fails.
+
    ```bash
-   air
+   docker compose logs --tail=100 app
+   docker compose logs --tail=100 db
    ```
+
+To stop the services without deleting MariaDB data:
+
+```bash
+docker compose down
+```
+
+## Run with Go Locally
+
+Use this option when MariaDB and all external dependencies are already available on the host.
+
+1. Copy `.env.example` to `.env`, then update the local database connection:
+
+   ```env
+   DB_HOST=localhost
+   DB_PORT=3306
+   ADDRESS=localhost
+   PORT=8082
+   AI_BASE_URL=https://chakrai.akademicompetition.id
+   ```
+
+2. Start the application:
+
+   ```bash
+   go run ./cmd/app
+   ```
+
+   The application runs migrations and seeds during startup. The health check is available at `http://localhost:8082/healthz`.
+
+## Important Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `DB_*` | MariaDB connection settings. In Docker, the application automatically uses host `db` and port `3306`. |
+| `APP_HOST_PORT` | Host port for the Docker API; defaults to `8082`. |
+| `JWT_SECRET_KEY` | Secret used to sign access tokens. Use a long, random value. |
+| `SMTP_*` | Credentials used to send registration and password-reset OTP emails. |
+| `SUPABASE_*` | Object-storage configuration for uploaded XLSX files. |
+| `AI_BASE_URL` | Cakra AI endpoint. Use the public HTTPS URL for development, or `http://cakra-ai:7860` when both containers are on the same Docker network. |
+| `AI_REQUEST_TIMEOUT_SECONDS` | Timeout for `POST /predict`; defaults to `60`. |
+| `AI_API_KEY` | Optional API key if the AI service enables authentication. |
+| `AI_CALLBACK_SECRET` | Secret for the legacy internal callback endpoint; still required for compatibility. |
+| `ALLOWED_ORIGINS` | Comma-separated frontend origins, for example `http://localhost:3000,https://app.example.com`. Each value must exactly match the browser origin. |
+
+After changing `.env` in a Docker deployment, recreate the API container to apply the new environment:
+
+```bash
+docker compose up -d --force-recreate app
+```
+
+## Cakra AI
+
+When an analysis is created, the backend creates a session and reserves one credit first. After the database transaction commits, it sends `POST /predict` to Cakra AI.
+
+- `COMPLETED`: the recommendation is saved and one credit is debited.
+- `INSUFFICIENT_DATA`: historical data is insufficient; the reserved credit is released.
+- `AI_FAILED`: the AI service is unreachable or returned an invalid response; the reserved credit is released.
+
+To confirm that the API container can reach Cakra AI:
+
+```bash
+docker compose exec app sh -c 'wget -q -O- "$AI_BASE_URL/health"'
+```
+
+The AI contract is documented in [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
+
+## Analysis Upload Format
+
+The upload endpoint accepts an `.xlsx` file containing one SKU per file. The first sheet must include these headers:
+
+```text
+tanggal,jumlah_terjual,nama_sku,harga_satuan
+```
+
+Data rules:
+
+- `tanggal`: `YYYY-MM-DD` format, with no duplicate dates.
+- `jumlah_terjual`: integer greater than or equal to `0`.
+- `nama_sku`: required and identical in every row.
+- `harga_satuan`: number greater than or equal to `0`.
+
+For regular demand patterns, the AI needs at least 90 days of historical data before it can generate a forecast.
+
+## API Flow Overview
+
+All analysis endpoints require this header after login:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+1. `POST /api/v1/auth/register` starts registration and returns `X-Session-Token`.
+2. `POST /api/v1/auth/register/verify-otp` sends the previous session token and returns a replacement token in the same header.
+3. `POST /api/v1/auth/register/password` sends the token returned after OTP verification.
+4. `POST /api/v1/auth/login` returns an access token.
+5. `POST /api/v1/analysis/upload` uploads a valid XLSX file.
+6. `POST /api/v1/analysis/sessions/:uploadID` runs synchronous analysis through AI.
+7. `GET /api/v1/analysis/sessions/:sessionID` retrieves analysis-result details.
+8. `GET /api/v1/analysis/history` retrieves completed analysis history.
+
+Example analysis-session request:
+
+```bash
+curl -X POST http://localhost:8082/api/v1/analysis/sessions/<upload_id> \
+  -H 'Authorization: Bearer <access_token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "category_name": "Makanan & Minuman",
+    "current_stock": 40,
+    "lead_time_days": 3
+  }'
+```
+
+## Validation and Development
+
+```bash
+go test ./...
+go vet ./...
+go build ./...
+```
+
+Main project structure:
+
+```text
+cmd/app/                 application composition root and startup
+internal/handler/rest/   Gin HTTP handlers and routes
+internal/service/        business workflows
+internal/repository/     GORM queries and database access
+pkg/ai/                  Cakra AI HTTP adapter
+pkg/config/              environment loading and validation
+```
+
+## VPS Deployment
+
+The GitHub Actions workflow in `.github/workflows/deploy.yml` builds a GHCR image and runs `deploy.sh` over SSH. Configure these repository secrets:
+
+```text
+VPS_HOST
+VPS_USERNAME
+VPS_SSH_KEY
+VPS_APP_DIR
+CR_PAT
+```
+
+`VPS_APP_DIR` must be the absolute path to the repository on the VPS, such as `/home/deploy/project/ui/cakra-hackathon`; do not use `~`. Create the production `.env` directly on the VPS and never store it in Git.

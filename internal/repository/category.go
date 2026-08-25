@@ -19,12 +19,13 @@ func NewCategoryRepository(db *gorm.DB) ICategoryRepository {
 }
 
 func (r *CategoryRepository) GetOrCreate(tx *gorm.DB, category *entity.Category) (*entity.Category, error) {
+	var existing entity.Category
 	err := tx.
 		Where("name = ? AND (user_id = ? OR user_id IS NULL)", category.Name, category.UserID).
 		Order("user_id IS NULL ASC").
-		First(category).Error
+		First(&existing).Error
 	if err == nil {
-		return category, nil
+		return &existing, nil
 	}
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -42,11 +43,11 @@ func (r *CategoryRepository) GetOrCreate(tx *gorm.DB, category *entity.Category)
 	err = tx.
 		Where("name = ? AND (user_id = ? OR user_id IS NULL)", category.Name, category.UserID).
 		Order("user_id IS NULL ASC").
-		First(category).Error
+		First(&existing).Error
 	if err != nil {
 		return nil, err
 	}
-	return category, nil
+	return &existing, nil
 }
 
 func (r *CategoryRepository) ListByUserID(tx *gorm.DB, userID uuid.UUID) ([]entity.Category, error) {

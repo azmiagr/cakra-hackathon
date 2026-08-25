@@ -130,7 +130,7 @@ func (r *Rest) CreateAnalysisSession(c *gin.Context) {
 		return
 	}
 
-	result, err := r.service.AnalysisService.CreateSession(user.UserID, uploadID, req)
+	result, err := r.service.AnalysisService.CreateSession(c.Request.Context(), user.UserID, uploadID, req)
 	if err != nil {
 		response.HandleError(c, err)
 		return

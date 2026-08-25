@@ -4,6 +4,7 @@ import (
 	"github.com/azmiagr/cakra-hackathon/internal/handler/rest"
 	"github.com/azmiagr/cakra-hackathon/internal/repository"
 	"github.com/azmiagr/cakra-hackathon/internal/service"
+	"github.com/azmiagr/cakra-hackathon/pkg/ai"
 	"github.com/azmiagr/cakra-hackathon/pkg/bcrypt"
 	"github.com/azmiagr/cakra-hackathon/pkg/config"
 	"github.com/azmiagr/cakra-hackathon/pkg/database/mariadb"
@@ -44,7 +45,8 @@ func main() {
 	jwtAuth := jwt.Init()
 	mailer := mail.Init()
 	storage := supabase.Init()
-	svc := service.NewService(repo, bcryptAuth, jwtAuth, mailer, registrationConfig, storage)
+	predictor := ai.NewHTTPPredictor(aiConfig)
+	svc := service.NewService(repo, bcryptAuth, jwtAuth, mailer, registrationConfig, storage, predictor)
 
 	middleware := middleware.Init(svc, jwtAuth, aiConfig)
 	r := rest.NewRest(svc, middleware)

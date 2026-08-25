@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"github.com/azmiagr/cakra-hackathon/entity"
 	"github.com/azmiagr/cakra-hackathon/internal/repository"
 	"github.com/azmiagr/cakra-hackathon/model"
+	"github.com/azmiagr/cakra-hackathon/pkg/ai"
 	constants "github.com/azmiagr/cakra-hackathon/pkg/constant"
 	"github.com/azmiagr/cakra-hackathon/pkg/database/mariadb"
 	appErrors "github.com/azmiagr/cakra-hackathon/pkg/errors"
@@ -31,7 +33,7 @@ const maxXLSXSize = 2 * 1024 * 1024
 
 type IAnalysisService interface {
 	Upload(userID uuid.UUID, file *multipart.FileHeader) (*model.AnalysisUploadResponse, error)
-	CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error)
+	CreateSession(ctx context.Context, userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error)
 	GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error)
 	GetHistory(userID uuid.UUID, query model.AnalysisHistoryQuery) (*model.AnalysisHistoryResponse, error)
 	ListCategories(userID uuid.UUID) ([]model.CategoryResponse, error)
@@ -45,15 +47,17 @@ type AnalysisService struct {
 	categoryRepo repository.ICategoryRepository
 	creditRepo   repository.ICreditAccountRepository
 	storage      supabase.Interface
+	predictor    ai.Predictor
 }
 
-func NewAnalysisService(analysisRepo repository.IAnalysisRepository, categoryRepo repository.ICategoryRepository, creditRepo repository.ICreditAccountRepository, storage supabase.Interface) IAnalysisService {
+func NewAnalysisService(analysisRepo repository.IAnalysisRepository, categoryRepo repository.ICategoryRepository, creditRepo repository.ICreditAccountRepository, storage supabase.Interface, predictor ai.Predictor) IAnalysisService {
 	return &AnalysisService{
 		db:           mariadb.Connection,
 		analysisRepo: analysisRepo,
 		categoryRepo: categoryRepo,
 		creditRepo:   creditRepo,
 		storage:      storage,
+		predictor:    predictor,
 	}
 }
 
@@ -141,7 +145,7 @@ func (s *AnalysisService) Upload(userID uuid.UUID, file *multipart.FileHeader) (
 	return uploadResponse(upload, parsed.rows, parsed.errors), nil
 }
 
-func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error) {
+func (s *AnalysisService) CreateSession(ctx context.Context, userID, uploadID uuid.UUID, req model.CreateAnalysisSessionRequest) (*model.AnalysisSessionResponse, error) {
 	req.CategoryName = strings.TrimSpace(req.CategoryName)
 	if req.CategoryName == "" {
 		return nil, appErrors.BadRequest("kategori produk wajib diisi")
@@ -169,7 +173,7 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 		return nil, appErrors.BadRequest("data penjualan valid tidak tersedia")
 	}
 
-	account, err := s.creditRepo.GetByUserIDForUpdate(tx, userID)
+	_, err = s.creditRepo.GetByUserIDForUpdate(tx, userID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, appErrors.BadRequest("akun kredit belum tersedia")
 	}
@@ -215,7 +219,7 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 	}
 
 	history := make([]entity.SalesHistory, len(rows))
-	payloadRows := make([]model.AISalesHistoryRow, len(rows))
+	predictionHistory := make([]ai.SalesHistoryPoint, len(rows))
 	for i, row := range rows {
 		history[i] = entity.SalesHistory{
 			SalesHistoryID:    uuid.New(),
@@ -224,10 +228,9 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 			QuantitySold:      row.QuantitySold,
 			UnitPrice:         row.UnitPrice,
 		}
-		payloadRows[i] = model.AISalesHistoryRow{
-			SaleDate:     row.SaleDate.Format("2006-01-02"),
+		predictionHistory[i] = ai.SalesHistoryPoint{
+			Date:         row.SaleDate.Format("2006-01-02"),
 			QuantitySold: row.QuantitySold,
-			UnitPrice:    row.UnitPrice,
 		}
 	}
 
@@ -241,17 +244,30 @@ func (s *AnalysisService) CreateSession(userID, uploadID uuid.UUID, req model.Cr
 		return nil, appErrors.InternalServer("gagal membuat sesi analisis")
 	}
 
-	return &model.AnalysisSessionResponse{
-		SessionID:        session.AnalysisSessionID,
-		Status:           session.Status,
-		AvailableCredits: account.Balance - account.ReservedCredits - 1,
-		AIPayload: &model.AIAnalysisPayload{
-			AnalysisSessionID: session.AnalysisSessionID,
-			SKUName:           sku.Name,
-			CurrentStock:      session.CurrentStock,
-			LeadTimeDays:      session.LeadTimeDays,
-			SalesHistory:      payloadRows},
-	}, nil
+	result, predictErr := s.predictor.Predict(ctx, ai.PredictionInput{
+		SKUName:      sku.Name,
+		CategoryName: category.Name,
+		CurrentStock: session.CurrentStock,
+		LeadTimeDays: session.LeadTimeDays,
+		SessionID:    session.AnalysisSessionID.String(),
+		SalesHistory: predictionHistory,
+	})
+
+	completion := aiResultRequest(result)
+	if predictErr != nil {
+		completion = model.AIResultRequest{
+			Status:       "FAILED",
+			ErrorCode:    ai.ErrorCode(predictErr),
+			ErrorMessage: "layanan analisis sementara tidak tersedia",
+		}
+	}
+
+	err = s.CompleteFromAI(session.AnalysisSessionID, completion)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetSession(userID, session.AnalysisSessionID)
 }
 
 func (s *AnalysisService) ListCategories(userID uuid.UUID) ([]model.CategoryResponse, error) {
@@ -344,27 +360,30 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 		return nil, appErrors.InternalServer("gagal mengambil data analisis")
 	}
 
-	payloadRows := make([]model.AISalesHistoryRow, len(rows))
-	for i, row := range rows {
-		payloadRows[i] = model.AISalesHistoryRow{
-			SaleDate:     row.SaleDate.Format("2006-01-02"),
-			QuantitySold: row.QuantitySold,
-			UnitPrice:    row.UnitPrice,
-		}
-	}
-
 	response := &model.AnalysisSessionResponse{
 		SessionID:        session.AnalysisSessionID,
 		Status:           session.Status,
 		AvailableCredits: account.Balance - account.ReservedCredits,
 		FailureCode:      session.FailureCode,
 		FailureMessage:   session.FailureMessage,
-		AIPayload: &model.AIAnalysisPayload{
+	}
+
+	if session.Status == constants.AnalysisSessionPendingAI {
+		payloadRows := make([]model.AISalesHistoryRow, len(rows))
+		for i, row := range rows {
+			payloadRows[i] = model.AISalesHistoryRow{
+				SaleDate:     row.SaleDate.Format("2006-01-02"),
+				QuantitySold: row.QuantitySold,
+				UnitPrice:    row.UnitPrice,
+			}
+		}
+		response.AIPayload = &model.AIAnalysisPayload{
 			AnalysisSessionID: session.AnalysisSessionID,
 			SKUName:           sku.Name,
 			CurrentStock:      session.CurrentStock,
 			LeadTimeDays:      session.LeadTimeDays,
-			SalesHistory:      payloadRows},
+			SalesHistory:      payloadRows,
+		}
 	}
 
 	if result != nil {
@@ -388,6 +407,44 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 		response.Result = buildAnalysisResult(session, sku, category, rows, result, p50, p90)
 	}
 	return response, nil
+}
+
+func aiResultRequest(result ai.PredictionOutput) model.AIResultRequest {
+	switch result.Status {
+	case "SUCCESS":
+		return model.AIResultRequest{
+			Status:          "SUCCESS",
+			DemandCategory:  result.DemandCategory,
+			ADIValue:        result.ADIValue,
+			CVSquaredValue:  result.CVSquaredValue,
+			ForecastP50:     result.ForecastP50,
+			ForecastP90:     result.ForecastP90,
+			ReorderPoint:    result.ReorderPoint,
+			ReorderQuantity: result.ReorderQuantity,
+			RiskLabel:       result.RiskLabel,
+			RiskReason:      result.RiskReason,
+			ExplanationText: result.ExplanationText,
+		}
+	case "INSUFFICIENT_DATA":
+		return model.AIResultRequest{
+			Status:       "INSUFFICIENT_DATA",
+			ErrorCode:    fallbackValue(result.ErrorCode, "INSUFFICIENT_DATA"),
+			ErrorMessage: fallbackValue(result.Message, "data historis belum mencukupi untuk analisis"),
+		}
+	default:
+		return model.AIResultRequest{
+			Status:       "FAILED",
+			ErrorCode:    fallbackValue(result.ErrorCode, "AI_FAILED"),
+			ErrorMessage: fallbackValue(result.Message, "layanan analisis gagal memproses data"),
+		}
+	}
+}
+
+func fallbackValue(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func (s *AnalysisService) GetHistory(userID uuid.UUID, query model.AnalysisHistoryQuery) (*model.AnalysisHistoryResponse, error) {

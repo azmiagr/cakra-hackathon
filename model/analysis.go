@@ -127,8 +127,9 @@ type AnalysisResultResponse struct {
 }
 
 type AnalysisResultSKU struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Category *string   `json:"category,omitempty"`
 }
 
 type HistoricalDataSummary struct {

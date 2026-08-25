@@ -323,7 +323,7 @@ func (s *AnalysisService) GetDashboard(userID uuid.UUID, userName, search string
 }
 
 func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.AnalysisSessionResponse, error) {
-	session, sku, result, err := s.analysisRepo.GetSessionOwned(s.db, sessionID, userID)
+	session, sku, category, result, err := s.analysisRepo.GetSessionOwned(s.db, sessionID, userID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, appErrors.NotFound("sesi analisis tidak ditemukan")
 	}
@@ -385,7 +385,7 @@ func (s *AnalysisService) GetSession(userID, sessionID uuid.UUID) (*model.Analys
 			RiskReason:      result.RiskReason,
 			ExplanationText: result.ExplanationText,
 		}
-		response.Result = buildAnalysisResult(session, sku, rows, result, p50, p90)
+		response.Result = buildAnalysisResult(session, sku, category, rows, result, p50, p90)
 	}
 	return response, nil
 }
@@ -426,7 +426,12 @@ func (s *AnalysisService) GetHistory(userID uuid.UUID, query model.AnalysisHisto
 	}, nil
 }
 
-func buildAnalysisResult(session *entity.AnalysisSession, sku *entity.SKU, rows []entity.SalesHistory, result *entity.RecommendationResult, p50, p90 []float64) *model.AnalysisResultResponse {
+func buildAnalysisResult(session *entity.AnalysisSession, sku *entity.SKU, skuCategory *entity.Category, rows []entity.SalesHistory, result *entity.RecommendationResult, p50, p90 []float64) *model.AnalysisResultResponse {
+	var categoryName *string
+	if skuCategory != nil {
+		categoryName = &skuCategory.Name
+	}
+
 	historicalData := model.HistoricalDataSummary{
 		RowCount: len(rows),
 	}
@@ -459,8 +464,9 @@ func buildAnalysisResult(session *entity.AnalysisSession, sku *entity.SKU, rows 
 
 	return &model.AnalysisResultResponse{
 		SKU: model.AnalysisResultSKU{
-			ID:   sku.SKUID,
-			Name: sku.Name,
+			ID:       sku.SKUID,
+			Name:     sku.Name,
+			Category: categoryName,
 		},
 		AnalysisDate:       session.CreatedAt.UTC().Format("2006-01-02"),
 		HistoricalData:     historicalData,

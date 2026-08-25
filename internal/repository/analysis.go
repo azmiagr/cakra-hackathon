@@ -20,7 +20,7 @@ type IAnalysisRepository interface {
 	SetSKUCategory(tx *gorm.DB, skuID, categoryID uuid.UUID) error
 	CreateSession(tx *gorm.DB, session *entity.AnalysisSession) error
 	CreateSalesHistories(tx *gorm.DB, rows []entity.SalesHistory) error
-	GetSessionOwned(tx *gorm.DB, sessionID, userID uuid.UUID) (*entity.AnalysisSession, *entity.SKU, *entity.RecommendationResult, error)
+	GetSessionOwned(tx *gorm.DB, sessionID, userID uuid.UUID) (*entity.AnalysisSession, *entity.SKU, *entity.Category, *entity.RecommendationResult, error)
 	GetSessionForUpdate(tx *gorm.DB, sessionID uuid.UUID) (*entity.AnalysisSession, error)
 	ListSalesHistories(tx *gorm.DB, sessionID uuid.UUID) ([]entity.SalesHistory, error)
 	CreateRecommendationResult(tx *gorm.DB, result *entity.RecommendationResult) error
@@ -155,30 +155,39 @@ func (r *AnalysisRepository) CreateSalesHistories(tx *gorm.DB, rows []entity.Sal
 	return nil
 }
 
-func (r *AnalysisRepository) GetSessionOwned(tx *gorm.DB, sessionID, userID uuid.UUID) (*entity.AnalysisSession, *entity.SKU, *entity.RecommendationResult, error) {
+func (r *AnalysisRepository) GetSessionOwned(tx *gorm.DB, sessionID, userID uuid.UUID) (*entity.AnalysisSession, *entity.SKU, *entity.Category, *entity.RecommendationResult, error) {
 	var session entity.AnalysisSession
 
 	err := tx.Where("analysis_session_id = ? AND user_id = ?", sessionID, userID).First(&session).Error
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	var sku entity.SKU
 	err = tx.Where("sku_id = ?", session.SKUID).First(&sku).Error
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
+	}
+
+	var category *entity.Category
+	if sku.CategoryID != nil {
+		category = &entity.Category{}
+		err = tx.Where("category_id = ?", *sku.CategoryID).First(category).Error
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
 	}
 
 	var result entity.RecommendationResult
 	err = tx.Where("analysis_session_id = ?", sessionID).First(&result).Error
 	if err == gorm.ErrRecordNotFound {
-		return &session, &sku, nil, nil
+		return &session, &sku, category, nil, nil
 	}
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	return &session, &sku, &result, nil
+	return &session, &sku, category, &result, nil
 }
 func (r *AnalysisRepository) GetSessionForUpdate(tx *gorm.DB, sessionID uuid.UUID) (*entity.AnalysisSession, error) {
 	var session entity.AnalysisSession
